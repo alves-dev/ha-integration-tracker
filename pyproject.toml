@@ -1,0 +1,40 @@
+[project]
+name = "ha-integration-tracker"
+version = "2026.9.0"
+description = "Home Assistant custom integration for HACS lifecycle tracking"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "alves-dev" }]
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "homeassistant==2025.1.4",
+  "pytest==8.3.5",
+  "pytest-asyncio==0.25.3",
+  "pytest-cov==6.0.0",
+  "ruff==0.9.10",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "SIM"]
+
+[tool.coverage.run]
+source = ["custom_components/integration_tracker"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.uv]
+prerelease = "allow"

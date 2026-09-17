@@ -1,0 +1,25 @@
+{
+  "title": "Integration Tracker",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Integration Tracker",
+        "description": "Create a persistent registry for repositories installed through HACS."
+      }
+    },
+    "abort": {
+      "already_configured": "Integration Tracker is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Review settings",
+        "description": "Choose how often tracked items should be reviewed.",
+        "data": {
+          "review_interval_days": "Review interval (days)"
+        }
+      }
+    }
+  }
+}

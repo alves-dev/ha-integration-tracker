@@ -1,0 +1,13 @@
+{
+  "domain": "integration_tracker",
+  "name": "Integration Tracker",
+  "after_dependencies": ["hacs"],
+  "codeowners": ["@alves-dev"],
+  "config_flow": true,
+  "dependencies": ["frontend", "http", "panel_custom", "websocket_api"],
+  "documentation": "https://github.com/alves-dev/ha-integration-tracker",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/alves-dev/ha-integration-tracker/issues",
+  "version": "2026.9.0"
+}

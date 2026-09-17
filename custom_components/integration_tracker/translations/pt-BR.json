@@ -1,0 +1,25 @@
+{
+  "title": "Integration Tracker",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurar o Integration Tracker",
+        "description": "Crie um registro persistente dos repositórios instalados pelo HACS."
+      }
+    },
+    "abort": {
+      "already_configured": "O Integration Tracker já está configurado."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configurações de revisão",
+        "description": "Escolha com que frequência os itens rastreados devem ser revisados.",
+        "data": {
+          "review_interval_days": "Intervalo de revisão (dias)"
+        }
+      }
+    }
+  }
+}
