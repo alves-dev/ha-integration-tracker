@@ -21,5 +21,15 @@
         }
       }
     }
+  },
+  "issues": {
+    "never_reviewed": {
+        "title": "{integration} nunca foi revisada",
+        "description": "Abra o Integration Tracker e revise {integration}."
+    },
+    "needs_review": {
+        "title": "{integration} precisa de revisão",
+        "description": "Abra o Integration Tracker e revise {integration}; o intervalo de revisão expirou."
+    }
   }
 }

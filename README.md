@@ -2,7 +2,7 @@
 
 [![Quality Gate](https://sonar.alves-dev.com/api/project_badges/measure?project=ha-integration-tracker&metric=alert_status)](https://sonar.alves-dev.com/dashboard?id=ha-integration-tracker)
 [![Coverage](https://sonar.alves-dev.com/api/project_badges/measure?project=ha-integration-tracker&metric=coverage)](https://sonar.alves-dev.com/dashboard?id=ha-integration-tracker)
-![Version](https://img.shields.io/badge/Version-2026.9.0-41BDF5?style=flat-square)
+![Version](https://img.shields.io/badge/Version-2026.9.1-41BDF5?style=flat-square)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.1%2B-41BDF5?logo=homeassistant)
 
 Integration Tracker is a Home Assistant custom integration for understanding and maintaining the repositories installed through HACS. It keeps the context HACS does not own: why a repository is installed, where it is used, how useful it has been, and when it should be reviewed again.

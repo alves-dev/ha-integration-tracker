@@ -2,6 +2,18 @@
 
 All user-relevant changes are documented in this file.
 
+## [2026.9.1] - 2026-09-22
+
+### Added
+
+- Added Home Assistant repairs for never-reviewed and overdue tracked integrations.
+
+### Changed
+
+- Usage links now open in a new browser tab.
+- Improved the review repair titles and descriptions in Home Assistant.
+- Review repairs are now created individually for each affected integration.
+
 ## [2026.9.0] - 2026-09-17
 
 ### Added

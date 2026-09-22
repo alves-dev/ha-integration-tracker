@@ -1,6 +1,6 @@
 [project]
 name = "ha-integration-tracker"
-version = "2026.9.0"
+version = "2026.9.1"
 description = "Home Assistant custom integration for HACS lifecycle tracking"
 requires-python = ">=3.12"
 license = { text = "MIT" }

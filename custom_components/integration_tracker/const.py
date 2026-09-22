@@ -5,7 +5,7 @@ from typing import Final
 
 DOMAIN: Final = "integration_tracker"
 NAME: Final = "Integration Tracker"
-INTEGRATION_VERSION: Final = "2026.9.0"
+INTEGRATION_VERSION: Final = "2026.9.1"
 
 CONF_REVIEW_INTERVAL_DAYS: Final = "review_interval_days"
 DEFAULT_REVIEW_INTERVAL_DAYS: Final = 90
