@@ -1084,7 +1084,7 @@ wheels = [
 
 [[package]]
 name = "ha-integration-tracker"
-version = "2026.9.0"
+version = "2026.9.1"
 source = { virtual = "." }
 
 [package.dev-dependencies]

@@ -9,10 +9,17 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
-from .const import DOMAIN, INITIAL_SYNC_RETRY_SECONDS, SYNC_INTERVAL
+from .const import (
+    CONF_REVIEW_INTERVAL_DAYS,
+    DEFAULT_REVIEW_INTERVAL_DAYS,
+    DOMAIN,
+    INITIAL_SYNC_RETRY_SECONDS,
+    SYNC_INTERVAL,
+)
 from .panel import async_register_panel, async_unregister_panel
 from .providers import HacsProvider
 from .registry import IntegrationRegistry
+from .repairs import async_update_review_issues
 from .storage import RegistryStorage
 from .websocket import async_register_websocket_commands
 
@@ -23,6 +30,7 @@ _LOGGER = logging.getLogger(__name__)
 class IntegrationTrackerRuntime:
     """Runtime state for one config entry."""
 
+    hass: HomeAssistant
     config_entry: ConfigEntry
     registry: IntegrationRegistry
     provider: HacsProvider
@@ -36,7 +44,15 @@ class IntegrationTrackerRuntime:
             self.sync_error = str(err)
             raise
         self.sync_error = None
+        self.async_update_repairs()
         return result
+
+    def async_update_repairs(self) -> None:
+        """Update Home Assistant repair issues for current review state."""
+        interval_days = int(
+            self.config_entry.options.get(CONF_REVIEW_INTERVAL_DAYS, DEFAULT_REVIEW_INTERVAL_DAYS)
+        )
+        async_update_review_issues(self.hass, self.registry.list_items(), interval_days)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -49,11 +65,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Integration Tracker from a config entry."""
     registry = IntegrationRegistry(RegistryStorage(hass))
     await registry.async_load()
-    runtime = IntegrationTrackerRuntime(entry, registry, HacsProvider(hass))
+    runtime = IntegrationTrackerRuntime(hass, entry, registry, HacsProvider(hass))
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime
 
     async_register_websocket_commands(hass)
     await async_register_panel(hass)
+    runtime.async_update_repairs()
 
     async def _run_sync() -> None:
         try:

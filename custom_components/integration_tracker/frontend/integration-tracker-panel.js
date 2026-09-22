@@ -322,12 +322,7 @@ class IntegrationTrackerPanel extends HTMLElement {
 
   _openUrl(url) {
     if (!url) return;
-    if (/^https?:\/\//i.test(url)) {
-      window.open(url, "_blank", "noopener,noreferrer");
-      return;
-    }
-    history.pushState(null, "", url);
-    window.dispatchEvent(new CustomEvent("location-changed"));
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
   _announce(message) {

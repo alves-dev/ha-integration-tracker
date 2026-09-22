@@ -12,6 +12,7 @@ Knowing where a repository is used helps users judge its importance, understand 
 
 - [ ] Users can add a named usage with a usage type.
 - [ ] Users can optionally associate a Home Assistant path or HTTP(S) link.
+- [ ] The usage link action opens the associated link in a new browser tab.
 - [ ] Users can edit and remove usage records.
 - [ ] Usage records remain attached to the tracked repository across synchronization and reloads.
 
@@ -26,4 +27,3 @@ Knowing where a repository is used helps users judge its importance, understand 
 
 - **Created**: 2026-09-22 (Phase: Intent)
 - **Status**: Active (already implemented)
-

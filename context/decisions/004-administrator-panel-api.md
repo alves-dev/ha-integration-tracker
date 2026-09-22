@@ -6,7 +6,7 @@ The integration needs a Home Assistant-native interface for inventory management
 
 ## Decision
 
-Register a custom sidebar panel that is restricted to administrators and serve a browser-native JavaScript web component. Expose reads and mutations through named Home Assistant WebSocket commands, with administrator guards, schema validation, and domain errors. Keep calculated review state and summary counters in API responses rather than persisting them as lifecycle fields.
+Register a custom sidebar panel that is restricted to administrators and serve a browser-native JavaScript web component. Expose reads and mutations through named Home Assistant WebSocket commands, with administrator guards, schema validation, and domain errors. Keep calculated review state, summary counters, and review repair issues derived from persisted review history and current configuration rather than persisting them as lifecycle fields.
 
 ## Rationale
 
@@ -18,7 +18,7 @@ Alternatives are not documented in the existing codebase. No REST API, frontend 
 
 ## Outcomes
 
-The API currently supports listing, retrieving, updating, usage CRUD, marking reviewed, and manual synchronization. Local documentation calls out administrator, failure, theme, and responsive-panel checks.
+The API currently supports listing, retrieving, updating, usage CRUD, marking reviewed, and manual synchronization. Review state also drives one persistent Home Assistant repair issue per affected item: never reviewed or review interval expired. They are recalculated when the integration loads, synchronizes, or records a review, and are removed when the item no longer matches. Usage links are opened in a separate browser tab. Local documentation calls out administrator, failure, theme, and responsive-panel checks.
 
 ## Related
 
@@ -33,4 +33,3 @@ The API currently supports listing, retrieving, updating, usage CRUD, marking re
 - **Created**: 2026-09-22 (Phase: Intent)
 - **Status**: Accepted
 - **Note**: Documented from existing implementation.
-

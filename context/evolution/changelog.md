@@ -30,3 +30,10 @@
 *This changelog documents the state when Context Mesh was added.*
 *Future changes will be tracked below.*
 
+## 2026.9.1
+
+- Added persistent Home Assistant repair issues for never-reviewed and review-overdue tracked integrations.
+- Repairs are now individual per tracked integration, with the integration name in the title.
+- Usage links now open in a new browser tab.
+- Improved the translated titles and descriptions for review repairs.
+- Bumped the integration version to `2026.9.1`.

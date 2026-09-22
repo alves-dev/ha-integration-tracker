@@ -226,6 +226,7 @@ async def websocket_mark_reviewed(hass, connection, msg) -> None:
     try:
         runtime = _runtime(hass)
         item = await runtime.registry.async_mark_reviewed(msg["item_id"])
+        runtime.async_update_repairs()
         connection.send_result(msg["id"], item.to_dict(_interval(runtime)))
     except RegistryError as err:
         _send_domain_error(connection, msg, err)

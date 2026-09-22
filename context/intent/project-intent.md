@@ -10,7 +10,7 @@ HACS manages installation and updates, but it does not preserve the user’s lif
 
 ## Current State
 
-The implemented project provides a configured Home Assistant integration with a persistent registry, HACS discovery, synchronization, administrator panel, WebSocket operations, review tracking, manual usage tracking, filtering and sorting, and tests covering the registry lifecycle. It is version `2026.9.0` and targets Home Assistant `2025.1+`.
+The implemented project provides a configured Home Assistant integration with a persistent registry, HACS discovery, synchronization, administrator panel, WebSocket operations, review tracking, review repairs, manual usage tracking, filtering and sorting, and tests covering the registry lifecycle. It is version `2026.9.1` and targets Home Assistant `2025.1+`.
 
 ## Current Features
 
@@ -32,4 +32,3 @@ The implemented project provides a configured Home Assistant integration with a 
 - **Created**: 2026-09-22 (Phase: Intent)
 - **Status**: Active
 - **Note**: Generated from existing codebase analysis.
-
