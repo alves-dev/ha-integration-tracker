@@ -8,6 +8,7 @@ from homeassistant.core import HomeAssistant
 
 from ..models import ProviderItem
 from .base import IntegrationProvider, ProviderUnavailableError
+from .icons import async_resolve_icon
 
 
 def _string_value(value: Any) -> str | None:
@@ -62,7 +63,7 @@ class MarketplaceProvider(IntegrationProvider):
                 continue
 
             domain = _string_value(getattr(data, "domain", None))
-            icon = f"https://brands.home-assistant.io/{domain}/icon.png" if domain else None
+            icon = await async_resolve_icon(self._hass, domain)
             discovered.append(
                 ProviderItem(
                     source=self.source,

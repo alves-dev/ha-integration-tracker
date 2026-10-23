@@ -2,7 +2,7 @@
 
 ## What
 
-Discover repositories currently installed through the Home Assistant community store and maintain a historical record of their installation state, identity, category, versions, and available repository information. Preserve a record when a repository is uninstalled and reconnect it when the same repository is installed again, including when the store transitions from HACS to Marketplace.
+Discover repositories currently installed through the Home Assistant community store and loaded integrations built into Home Assistant, maintaining a historical record of their installation state, identity, category, versions, and available repository information. Preserve a record when a repository is uninstalled and reconnect it when the same repository is installed again, including when the store transitions from HACS to Marketplace.
 
 ## Why
 
@@ -11,6 +11,7 @@ Users need a reliable inventory of custom repositories and their lifecycle over 
 ## Acceptance Criteria
 
 - [ ] Installed HACS or Marketplace repositories appear in the tracker.
+- [ ] Loaded Home Assistant Core integrations appear separately from community-store repositories.
 - [ ] A repository remains in the tracker after it is removed from HACS.
 - [ ] Reinstalling the same repository restores its installed state and existing context.
 - [ ] Temporary HACS unavailability does not falsely mark repositories as uninstalled.

@@ -481,7 +481,7 @@ class IntegrationTrackerPanel extends HTMLElement {
   }
 
   _renderIcon(item) {
-    if (item.icon && /^https?:\/\//i.test(item.icon)) {
+    if (item.icon && /^(https?:\/\/|data:image\/)/i.test(item.icon)) {
       return `<span class="item-icon-wrap"><img class="item-icon" src="${escapeHtml(item.icon)}" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="item-icon fallback" hidden><ha-icon icon="${this._categoryIcon(item)}"></ha-icon></span></span>`;
     }
     return `<span class="item-icon fallback"><ha-icon icon="${this._categoryIcon(item)}"></ha-icon></span>`;
@@ -590,6 +590,7 @@ class IntegrationTrackerPanel extends HTMLElement {
       .hero-title { display:flex; align-items:center; gap:14px; } .hero-icon { display:grid; place-items:center; width:52px; height:52px; color:var(--text-primary-color); background:var(--primary-color); border-radius:16px; box-shadow:var(--ha-card-box-shadow, none); } .hero-icon ha-icon { --mdc-icon-size:28px; }
       .integration-cell { display:flex; align-items:center; gap:12px; min-width:200px; } .integration-cell strong,.integration-cell small { display:block; } .integration-cell small,td small { color:var(--secondary-text-color); margin-top:3px; }
       .item-icon-wrap { display:grid; place-items:center; width:40px; height:40px; flex:0 0 40px; } .item-icon { width:40px; height:40px; object-fit:contain; border-radius:8px; } .item-icon.fallback { display:grid; place-items:center; color:var(--primary-color); background:var(--secondary-background-color); border:1px solid var(--divider-color); }
+      [hidden] { display:none !important; }
       .category-label { display:inline-flex; align-items:center; gap:6px; color:var(--secondary-text-color); } .category-label ha-icon { --mdc-icon-size:18px; color:var(--primary-color); }
       .badge { display:inline-flex; border:1px solid var(--divider-color); background:var(--secondary-background-color); border-radius:999px; padding:3px 9px; white-space:nowrap; } .badge.success,.badge.store-marketplace { color:var(--success-color); border-color:color-mix(in srgb, var(--success-color) 45%, var(--divider-color)); } .badge.testing,.badge.info { color:var(--info-color, var(--primary-color)); } .badge.warning,.badge.active { color:var(--warning-color); } .badge.replace,.badge.archived { color:var(--error-color); } .badge.installed { color:var(--success-color); } .badge.muted,.badge.unused { color:var(--secondary-text-color); } .badge.store-hacs { color:var(--primary-color); } .stars,.star-button.selected { color:var(--warning-color); }
       .message { border:1px solid var(--divider-color); border-left:4px solid var(--primary-color); background:var(--card-background-color); border-radius:8px; padding:12px 14px; margin-bottom:16px; } .message.error { border-left-color:var(--error-color); } .message.warning { border-left-color:var(--warning-color); }

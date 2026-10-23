@@ -17,7 +17,7 @@ from .const import (
     SYNC_INTERVAL,
 )
 from .panel import async_register_panel, async_unregister_panel
-from .providers import CommunityStoreProvider
+from .providers import CommunityStoreProvider, CoreProvider
 from .registry import IntegrationRegistry
 from .repairs import async_update_review_issues
 from .storage import RegistryStorage
@@ -34,18 +34,27 @@ class IntegrationTrackerRuntime:
     config_entry: ConfigEntry
     registry: IntegrationRegistry
     provider: CommunityStoreProvider
+    core_provider: CoreProvider
     sync_error: str | None = None
 
     async def async_sync(self) -> dict[str, int]:
         """Synchronize and retain the latest error for the panel."""
-        try:
-            result = await self.registry.async_sync(self.provider)
-        except Exception as err:
-            self.sync_error = str(err)
-            raise
-        self.sync_error = None
+        totals = {"created": 0, "updated": 0, "uninstalled": 0}
+        errors: list[str] = []
+        for provider in (self.provider, self.core_provider):
+            try:
+                result = await self.registry.async_sync(provider)
+            except Exception as err:
+                errors.append(str(err))
+                continue
+            for key, value in result.items():
+                totals[key] += value
+
+        self.sync_error = "; ".join(errors) if errors else None
         self.async_update_repairs()
-        return result
+        if errors:
+            raise RuntimeError(self.sync_error)
+        return totals
 
     def async_update_repairs(self) -> None:
         """Update Home Assistant repair issues for current review state."""
@@ -66,7 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     registry = IntegrationRegistry(RegistryStorage(hass))
     await registry.async_load()
     runtime = IntegrationTrackerRuntime(
-        hass, entry, registry, CommunityStoreProvider(hass)
+        hass, entry, registry, CommunityStoreProvider(hass), CoreProvider(hass)
     )
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime
 

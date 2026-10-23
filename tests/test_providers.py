@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from custom_components.integration_tracker.providers import CommunityStoreProvider
+from custom_components.integration_tracker.providers import CommunityStoreProvider, CoreProvider
+from custom_components.integration_tracker.providers import core as core_provider_module
 from custom_components.integration_tracker.providers.base import ProviderUnavailableError
 
 
@@ -55,7 +57,11 @@ async def test_marketplace_snapshot_preserves_hacs_identity():
         system=SimpleNamespace(disabled=False),
         repositories=SimpleNamespace(list_installed=[marketplace_repository()]),
     )
-    hass = SimpleNamespace(config_entries=FakeConfigEntries(marketplace))
+    hass = SimpleNamespace(
+        config_entries=FakeConfigEntries(marketplace),
+        config=SimpleNamespace(path=lambda *parts: "/missing/" + "/".join(parts)),
+        async_add_executor_job=lambda function, *args: function(*args),
+    )
 
     items = await CommunityStoreProvider(hass).async_discover()
 
@@ -115,6 +121,8 @@ async def test_legacy_hacs_backend_remains_supported():
     hass = SimpleNamespace(
         config_entries=FakeConfigEntries(),
         data=SimpleNamespace(),
+        config=SimpleNamespace(path=lambda *parts: "/missing/" + "/".join(parts)),
+        async_add_executor_job=lambda function, *args: function(*args),
     )
     hass.data = {
         "hacs": SimpleNamespace(
@@ -128,3 +136,34 @@ async def test_legacy_hacs_backend_remains_supported():
 
     assert items[0].item_id == "hacs:owner/legacy"
     assert items[0].provider_data["store"] == "hacs"
+
+
+@pytest.mark.asyncio
+async def test_core_provider_discovers_loaded_built_in_integrations():
+    """Core inventory contains only loaded built-in integrations."""
+    class FakeIntegration:
+        is_built_in = True
+
+        def __init__(self, name: str) -> None:
+            self.manifest = {"name": name, "integration_type": "service"}
+
+    core = FakeIntegration("Example Core")
+    custom = SimpleNamespace(is_built_in=False, manifest={"name": "Custom"})
+    hass = SimpleNamespace(
+        config=SimpleNamespace(components={"example_core", "custom_component"}),
+    )
+
+    with (
+        patch.object(core_provider_module, "Integration", FakeIntegration),
+        patch.object(
+            core_provider_module,
+            "async_get_integrations",
+            new=AsyncMock(return_value={"example_core": core, "custom_component": custom}),
+        ),
+    ):
+        items = await CoreProvider(hass).async_discover()
+
+    assert len(items) == 1
+    assert items[0].item_id == "core:example_core"
+    assert items[0].provider_data["store"] == "core"
+    assert items[0].version
