@@ -30,6 +30,12 @@
 *This changelog documents the state when Context Mesh was added.*
 *Future changes will be tracked below.*
 
+## 2026.10.23
+
+- Documented the proposed automatic usage detection feature and its SDD.
+- Defined separate handling for detected and manual usages, stable detection keys,
+  evidence, confidence, stale results, and phased implementation tasks.
+
 ## 2026.10.0
 
 - Added Marketplace discovery for Home Assistant 2026.11+ with HACS fallback for older versions.
