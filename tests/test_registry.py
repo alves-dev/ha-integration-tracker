@@ -12,6 +12,7 @@ from custom_components.integration_tracker.providers.base import (
     ProviderUnavailableError,
 )
 from custom_components.integration_tracker.registry import IntegrationRegistry
+from custom_components.integration_tracker.usage_detection.models import DetectedUsage
 
 
 class MemoryStorage:
@@ -142,3 +143,70 @@ async def test_usage_crud_and_storage_reload():
 
     await restored.async_remove_usage(item_id, usage.id)
     assert restored.get_item(item_id).usages == []
+
+
+def detected(item_id="hacs:owner/example", key="automation:one:service:example.run"):
+    return DetectedUsage(
+        item_id=item_id,
+        name="Example automation",
+        type="automation",
+        detection_key=key,
+        detector="automations",
+        confidence="high",
+        url="/config/automation/edit/one",
+        evidence={"reference": "example.run", "location": "action"},
+    )
+
+
+@pytest.mark.asyncio
+async def test_detected_usage_reconciliation_is_idempotent_and_preserves_manual_usage():
+    storage = MemoryStorage()
+    registry = IntegrationRegistry(storage)
+    await registry.async_load()
+    await registry.async_sync(FakeProvider([provider_item()]))
+    item_id = "hacs:owner/example"
+    manual = await registry.async_add_usage(item_id, "My note", "other", None)
+
+    counts = await registry.async_reconcile_detected_usages("automations", [detected()])
+    assert counts == {"created": 1, "updated": 0, "stale": 0}
+    assert len(registry.get_item(item_id).usages) == 2
+
+    counts = await registry.async_reconcile_detected_usages("automations", [detected()])
+    assert counts == {"created": 0, "updated": 1, "stale": 0}
+    assert len(registry.get_item(item_id).usages) == 2
+    assert registry.get_item(item_id).usages[0].id == manual.id
+
+
+@pytest.mark.asyncio
+async def test_detected_usage_is_marked_stale_only_for_successful_detector_snapshot():
+    storage = MemoryStorage()
+    registry = IntegrationRegistry(storage)
+    await registry.async_load()
+    await registry.async_sync(FakeProvider([provider_item()]))
+    item_id = "hacs:owner/example"
+    await registry.async_reconcile_detected_usages("automations", [detected()])
+    usage = registry.get_item(item_id).usages[0]
+    assert usage.source == "detected"
+    assert usage.confirmed is False
+    assert usage.stale is False
+
+    await registry.async_reconcile_detected_usages("automations", [])
+    assert usage.stale is True
+
+
+@pytest.mark.asyncio
+async def test_detected_usage_can_be_confirmed_or_converted_to_manual():
+    storage = MemoryStorage()
+    registry = IntegrationRegistry(storage)
+    await registry.async_load()
+    await registry.async_sync(FakeProvider([provider_item()]))
+    item_id = "hacs:owner/example"
+    await registry.async_reconcile_detected_usages("automations", [detected()])
+    usage = registry.get_item(item_id).usages[0]
+
+    await registry.async_confirm_detected_usage(item_id, usage.id)
+    assert usage.confirmed is True
+    await registry.async_convert_detected_usage(item_id, usage.id)
+    assert usage.source == "manual"
+    assert usage.detection_key is None
+    assert usage.evidence == {}

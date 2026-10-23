@@ -52,6 +52,13 @@ class Usage:
     type: str
     url: str | None = None
     source: str = "manual"
+    detection_key: str | None = None
+    detector: str | None = None
+    confidence: str | None = None
+    confirmed: bool = True
+    stale: bool = False
+    last_seen_at: str | None = None
+    evidence: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def create(cls, name: str, usage_type: str, url: str | None = None) -> Usage:
@@ -64,6 +71,33 @@ class Usage:
         )
 
     @classmethod
+    def from_detection(
+        cls,
+        name: str,
+        usage_type: str,
+        url: str | None,
+        detection_key: str,
+        detector: str,
+        confidence: str,
+        evidence: dict[str, Any],
+        seen_at: str,
+    ) -> Usage:
+        """Create a usage discovered by an automatic detector."""
+        return cls(
+            id=f"usage-{uuid4().hex}",
+            name=name,
+            type=usage_type,
+            url=url,
+            source="detected",
+            detection_key=detection_key,
+            detector=detector,
+            confidence=confidence,
+            confirmed=False,
+            last_seen_at=seen_at,
+            evidence=evidence,
+        )
+
+    @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Usage:
         """Restore a usage from storage."""
         return cls(
@@ -72,6 +106,13 @@ class Usage:
             type=str(data.get("type") or "other"),
             url=data.get("url") or None,
             source=str(data.get("source") or "manual"),
+            detection_key=data.get("detection_key") or None,
+            detector=data.get("detector") or None,
+            confidence=data.get("confidence") or None,
+            confirmed=bool(data.get("confirmed", data.get("source") != "detected")),
+            stale=bool(data.get("stale", False)),
+            last_seen_at=data.get("last_seen_at") or None,
+            evidence=dict(data.get("evidence") or {}),
         )
 
 
