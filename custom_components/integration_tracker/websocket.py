@@ -58,6 +58,10 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
         websocket_mark_reviewed,
         websocket_update_settings,
         websocket_sync,
+        websocket_detect_usages,
+        websocket_confirm_usage,
+        websocket_ignore_usage,
+        websocket_convert_usage,
     ):
         websocket_api.async_register_command(hass, command)
     hass.data[marker] = True
@@ -91,6 +95,7 @@ def websocket_list_items(hass, connection, msg) -> None:
                 "summary": build_summary(items, interval),
                 "last_synced_at": runtime.registry.last_synced_at,
                 "sync_error": runtime.sync_error,
+                "usage_detection_error": runtime.usage_detection_error,
                 "review_interval_days": interval,
                 "settings": {
                     "include_core": include_core,
@@ -281,6 +286,109 @@ async def websocket_remove_usage(hass, connection, msg) -> None:
         connection.send_result(msg["id"])
     except RegistryError as err:
         _send_domain_error(connection, msg, err)
+
+
+def _usage_result(usage) -> dict[str, Any]:
+    """Serialize a usage mutation response."""
+    return {
+        "id": usage.id,
+        "name": usage.name,
+        "type": usage.type,
+        "url": usage.url,
+        "source": usage.source,
+        "detection_key": usage.detection_key,
+        "detector": usage.detector,
+        "confidence": usage.confidence,
+        "confirmed": usage.confirmed,
+        "stale": usage.stale,
+        "last_seen_at": usage.last_seen_at,
+        "evidence": usage.evidence,
+    }
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): f"{WS_PREFIX}/usage/detect"})
+@websocket_api.async_response
+async def websocket_detect_usages(hass, connection, msg) -> None:
+    """Run automatic usage detection."""
+    try:
+        runtime = _runtime(hass)
+        counts = await runtime.async_detect_usages()
+        connection.send_result(msg["id"], {"counts": counts})
+    except Exception as err:
+        _send_domain_error(connection, msg, err)
+
+
+async def _mutate_detected_usage(hass, connection, msg, operation) -> None:
+    """Apply one detected usage moderation operation."""
+    try:
+        usage = await operation(
+            msg["item_id"],
+            msg["usage_id"],
+        )
+        connection.send_result(msg["id"], _usage_result(usage))
+    except RegistryError as err:
+        _send_domain_error(connection, msg, err)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{WS_PREFIX}/usage/confirm",
+        vol.Required("item_id"): str,
+        vol.Required("usage_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_confirm_usage(hass, connection, msg) -> None:
+    """Confirm a detected usage."""
+    runtime = _runtime(hass)
+    await _mutate_detected_usage(
+        hass,
+        connection,
+        msg,
+        runtime.registry.async_confirm_detected_usage,
+    )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{WS_PREFIX}/usage/ignore",
+        vol.Required("item_id"): str,
+        vol.Required("usage_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_ignore_usage(hass, connection, msg) -> None:
+    """Ignore a detected usage."""
+    runtime = _runtime(hass)
+    await _mutate_detected_usage(
+        hass,
+        connection,
+        msg,
+        runtime.registry.async_ignore_detected_usage,
+    )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{WS_PREFIX}/usage/convert",
+        vol.Required("item_id"): str,
+        vol.Required("usage_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_convert_usage(hass, connection, msg) -> None:
+    """Convert a detected usage into a manual usage."""
+    runtime = _runtime(hass)
+    await _mutate_detected_usage(
+        hass,
+        connection,
+        msg,
+        runtime.registry.async_convert_detected_usage,
+    )
 
 
 @websocket_api.require_admin
