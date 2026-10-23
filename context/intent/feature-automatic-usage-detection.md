@@ -38,4 +38,5 @@ ou remover um repositório.
 ## Status
 
 - **Created**: 2026-10-23 (Phase: Intent)
-- **Status**: Proposed (not implemented)
+- **Status**: In progress (MVP slice implemented; dashboards, automations, scripts,
+  and integration detection are available)

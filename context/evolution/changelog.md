@@ -36,6 +36,13 @@
 - Defined separate handling for detected and manual usages, stable detection keys,
   evidence, confidence, stale results, and phased implementation tasks.
 
+## 2026.10.1
+
+- Implemented the first automatic usage detection slice with persistent detected
+  usages, detector snapshots, registry reconciliation, WebSocket moderation, and
+  panel actions.
+- Updated the integration version and panel asset cache key for validation.
+
 ## 2026.10.0
 
 - Added Marketplace discovery for Home Assistant 2026.11+ with HACS fallback for older versions.

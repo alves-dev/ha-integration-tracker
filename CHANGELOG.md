@@ -2,6 +2,15 @@
 
 All user-relevant changes are documented in this file.
 
+## [2026.10.1] - 2026-10-23
+
+### Added
+
+- Added automatic usage detection for configured integrations, dashboards,
+  automations, scripts, and Lovelace resources.
+- Added candidate confirmation, ignoring, and conversion to manual usage records.
+- Preserved manual usage records during automatic reconciliation.
+
 ## [2026.10.0] - 2026-10-23
 
 ### Added

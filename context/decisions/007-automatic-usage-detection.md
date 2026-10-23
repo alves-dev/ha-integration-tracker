@@ -45,4 +45,4 @@ recorded in the [automatic usage detection SDD](../../docs/automatic-usage-detec
 ## Status
 
 - **Created**: 2026-10-23 (Phase: Plan)
-- **Status**: Proposed
+- **Status**: Accepted

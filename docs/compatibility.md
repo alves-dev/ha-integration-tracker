@@ -2,6 +2,7 @@
 
 | Integration version | Minimum Home Assistant | Discovery backend | Notes                                                                |
 |---------------------|------------------------|-------------------|----------------------------------------------------------------------|
+| `2026.10.1`         | `2025.1`               | Marketplace/HACS  | Adds automatic usage detection for integrations, dashboards, automations, and scripts |
 | `2026.10.0`         | `2025.1`               | Marketplace/HACS  | Marketplace on HA 2026.11+; preserves existing HACS record identity |
 | `2026.9.1`          | `2025.1`               | HACS 2.x          | Adds review repairs and opens usage links in a new tab               |
 | `2026.9.0`          | `2025.1`               | HACS 2.x          | Initial release with custom panel and persistent registry            |
