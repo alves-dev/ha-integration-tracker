@@ -12,6 +12,8 @@ All user-relevant changes are documented in this file.
 
 - Preserved existing `hacs:owner/repository` tracker identities during the Marketplace migration.
 - Kept HACS discovery compatibility for older Home Assistant versions.
+- Displayed the active installation store separately from the stable historical source identity.
+- Added automatic Home Assistant brand icons and richer theme-aware status/category styling to the panel.
 
 ## [2026.9.1] - 2026-09-22
 

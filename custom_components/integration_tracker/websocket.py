@@ -77,6 +77,13 @@ def websocket_list_items(hass, connection, msg) -> None:
                     {item.category for item in items if item.category}, key=str.casefold
                 ),
                 "sources": sorted({item.source for item in items}, key=str.casefold),
+                "stores": sorted(
+                    {
+                        str(item.provider_data.get("store") or item.source)
+                        for item in items
+                    },
+                    key=str.casefold,
+                ),
             },
         )
     except RegistryError as err:

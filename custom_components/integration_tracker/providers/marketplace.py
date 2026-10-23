@@ -61,6 +61,8 @@ class MarketplaceProvider(IntegrationProvider):
             if not full_name:
                 continue
 
+            domain = _string_value(getattr(data, "domain", None))
+            icon = f"https://brands.home-assistant.io/{domain}/icon.png" if domain else None
             discovered.append(
                 ProviderItem(
                     source=self.source,
@@ -75,14 +77,16 @@ class MarketplaceProvider(IntegrationProvider):
                     available_version=_string_value(
                         getattr(repository, "display_available_version", None)
                     ),
+                    icon=icon,
                     provider_data={
                         "description": _string_value(getattr(data, "description", None)),
-                        "domain": _string_value(getattr(data, "domain", None)),
+                        "domain": domain,
                         "marketplace_id": _string_value(getattr(data, "id", None)),
                         "pending_update": bool(
                             getattr(repository, "pending_update", False)
                         ),
                         "topics": list(getattr(data, "topics", []) or []),
+                        "store": "marketplace",
                     },
                 )
             )

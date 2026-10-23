@@ -59,7 +59,7 @@ class IntegrationTrackerPanel extends HTMLElement {
       status: "all",
       rating: "all",
       review: "all",
-      source: "all",
+      store: "all",
       category: "all",
       tags: "",
       sort: "name",
@@ -114,6 +114,30 @@ class IntegrationTrackerPanel extends HTMLElement {
     return this._data?.items.find((item) => item.id === this._selectedId);
   }
 
+  _storeKey(item) {
+    return item.provider_data?.store || item.source || "unknown";
+  }
+
+  _storeLabel(item) {
+    const labels = { marketplace: "Marketplace", hacs: "HACS" };
+    return labels[this._storeKey(item)] || this._storeKey(item).toUpperCase();
+  }
+
+  _categoryIcon(item) {
+    const icons = {
+      integration: "mdi:puzzle",
+      plugin: "mdi:view-dashboard-outline",
+      theme: "mdi:palette-outline",
+      template: "mdi:code-braces",
+    };
+    return icons[item.category] || "mdi:puzzle-outline";
+  }
+
+  _statusClass(item) {
+    if (!item.installed) return "muted";
+    return item.status || "installed";
+  }
+
   get filteredItems() {
     if (!this._data) return [];
     const query = this._filters.query.trim().toLocaleLowerCase();
@@ -147,7 +171,7 @@ class IntegrationTrackerPanel extends HTMLElement {
         item.rating !== Number(this._filters.rating)
       ) return false;
       if (this._filters.review !== "all" && item.review_state !== this._filters.review) return false;
-      if (this._filters.source !== "all" && item.source !== this._filters.source) return false;
+      if (this._filters.store !== "all" && this._storeKey(item) !== this._filters.store) return false;
       if (this._filters.category !== "all" && item.category !== this._filters.category) return false;
       const itemTags = item.tags.map((tag) => tag.toLocaleLowerCase());
       return wantedTags.every((tag) => itemTags.includes(tag));
@@ -349,17 +373,20 @@ class IntegrationTrackerPanel extends HTMLElement {
       ? this._formatDate(this._data.last_synced_at)
       : "Never";
     return `
-      <header>
-        <div>
+      <header class="page-hero">
+        <div class="hero-title">
+          <span class="hero-icon"><ha-icon icon="mdi:package-variant-closed-check"></ha-icon></span>
+          <div>
           <h1>Integration Tracker</h1>
-          <p>Inventory, context, lifecycle, and review for HACS repositories.</p>
+          <p>Inventory, context, lifecycle, and review for your community repositories.</p>
+          </div>
         </div>
         <div class="sync-block">
           <span>Last synchronized: ${escapeHtml(lastSync)}</span>
           <button class="primary" data-action="sync" ${this._saving ? "disabled" : ""}>Sync now</button>
         </div>
       </header>
-      ${this._data?.sync_error ? `<div class="message warning">HACS sync: ${escapeHtml(this._data.sync_error)}</div>` : ""}
+      ${this._data?.sync_error ? `<div class="message warning">Community-store sync: ${escapeHtml(this._data.sync_error)}</div>` : ""}
     `;
   }
 
@@ -377,16 +404,16 @@ class IntegrationTrackerPanel extends HTMLElement {
   _renderSummary() {
     const summary = this._data.summary;
     const cards = [
-      [summary.total, "Tracked"],
-      [summary.statuses.active || 0, "Active"],
-      [summary.statuses.testing || 0, "Testing"],
-      [summary.needs_review, "Need review"],
-      [summary.no_known_usage, "No known usage"],
-      [summary.never_reviewed, "Never reviewed"],
-      [summary.uninstalled, "Uninstalled"],
+      [summary.total, "Tracked", "primary"],
+      [summary.statuses.active || 0, "Active", "success"],
+      [summary.statuses.testing || 0, "Testing", "info"],
+      [summary.needs_review, "Need review", "warning"],
+      [summary.no_known_usage, "No known usage", "neutral"],
+      [summary.never_reviewed, "Never reviewed", "warning"],
+      [summary.uninstalled, "Uninstalled", "muted"],
     ];
     return `<section class="summary" aria-label="Registry summary">${cards
-      .map(([value, label]) => `<article><strong>${value}</strong><span>${label}</span></article>`)
+      .map(([value, label, tone]) => `<article class="tone-${tone}"><strong>${value}</strong><span>${label}</span></article>`)
       .join("")}</section>`;
   }
 
@@ -407,8 +434,8 @@ class IntegrationTrackerPanel extends HTMLElement {
         <label><span>Review</span><select data-filter="review">
           ${option("all", "All", f.review)}${Object.entries(REVIEW_LABELS).map(([value, label]) => option(value, label, f.review)).join("")}
         </select></label>
-        <label><span>Source</span><select data-filter="source">
-          ${option("all", "All", f.source)}${this._data.sources.map((value) => option(value, value.toUpperCase(), f.source)).join("")}
+        <label><span>Store</span><select data-filter="store">
+          ${option("all", "All", f.store)}${(this._data.stores || this._data.sources).map((value) => option(value, value === "marketplace" ? "Marketplace" : value.toUpperCase(), f.store)).join("")}
         </select></label>
         <label><span>Category</span><select data-filter="category">
           ${option("all", "All", f.category)}${this._data.categories.map((value) => option(value, value, f.category)).join("")}
@@ -434,17 +461,17 @@ class IntegrationTrackerPanel extends HTMLElement {
     return `
       <div class="result-count">${items.length} of ${this._data.items.length} integrations</div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Integration</th><th>Source</th><th>Category</th><th>Status</th><th>Rating</th><th>Uses</th><th>Last review</th><th>Installed</th><th>Version</th></tr></thead>
+        <thead><tr><th>Integration</th><th>Store</th><th>Category</th><th>Status</th><th>Rating</th><th>Uses</th><th>Last review</th><th>Installed</th><th>Version</th></tr></thead>
         <tbody>${items.map((item) => this._renderRow(item)).join("")}</tbody>
       </table></div>`;
   }
 
   _renderRow(item) {
-    return `<tr class="${item.installed ? "" : "uninstalled"}" tabindex="0" data-action="open" data-item-id="${escapeHtml(item.id)}">
+    return `<tr class="${item.installed ? "" : "uninstalled"} status-${escapeHtml(this._statusClass(item))}" tabindex="0" data-action="open" data-item-id="${escapeHtml(item.id)}">
       <td><div class="integration-cell">${this._renderIcon(item)}<div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.repository)}</small></div></div></td>
-      <td>${escapeHtml(item.source.toUpperCase())}</td>
-      <td>${escapeHtml(item.category || "—")}</td>
-      <td>${this._badge(item.status ? STATUS_LABELS[item.status] : "No status")}</td>
+      <td>${this._badge(this._storeLabel(item), `store-${this._storeKey(item)}`)}</td>
+      <td><span class="category-label"><ha-icon icon="${this._categoryIcon(item)}"></ha-icon>${escapeHtml(item.category || "—")}</span></td>
+      <td>${this._badge(item.status ? STATUS_LABELS[item.status] : "No status", this._statusClass(item))}</td>
       <td class="stars" aria-label="${item.rating ? `${item.rating} stars` : "No rating"}">${item.rating ? "★".repeat(item.rating) + "☆".repeat(3 - item.rating) : "—"}</td>
       <td>${item.usages.length}</td>
       <td>${escapeHtml(this._formatDate(item.last_reviewed_at))}<small>${escapeHtml(REVIEW_LABELS[item.review_state])}</small></td>
@@ -455,9 +482,9 @@ class IntegrationTrackerPanel extends HTMLElement {
 
   _renderIcon(item) {
     if (item.icon && /^https?:\/\//i.test(item.icon)) {
-      return `<img class="item-icon" src="${escapeHtml(item.icon)}" alt="">`;
+      return `<span class="item-icon-wrap"><img class="item-icon" src="${escapeHtml(item.icon)}" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="item-icon fallback" hidden><ha-icon icon="${this._categoryIcon(item)}"></ha-icon></span></span>`;
     }
-    return `<span class="item-icon fallback"><ha-icon icon="mdi:puzzle"></ha-icon></span>`;
+    return `<span class="item-icon fallback"><ha-icon icon="${this._categoryIcon(item)}"></ha-icon></span>`;
   }
 
   _badge(text, style = "") {
@@ -476,7 +503,8 @@ class IntegrationTrackerPanel extends HTMLElement {
           <section class="metadata">
             <h3>Provider metadata</h3>
             <dl>
-              <div><dt>Source</dt><dd>${escapeHtml(item.source.toUpperCase())}</dd></div>
+              <div><dt>Installation store</dt><dd>${escapeHtml(this._storeLabel(item))}</dd></div>
+              <div><dt>Stable identity</dt><dd>${escapeHtml(item.source)}:${escapeHtml(item.repository)}</dd></div>
               <div><dt>Category</dt><dd>${escapeHtml(item.category || "—")}</dd></div>
               <div><dt>Installed</dt><dd>${item.installed ? "Yes" : "No"}</dd></div>
               <div><dt>Installed version</dt><dd>${escapeHtml(item.version || "—")}</dd></div>
@@ -554,14 +582,16 @@ class IntegrationTrackerPanel extends HTMLElement {
       .sync-block { display:flex; flex-direction:column; align-items:flex-end; gap:8px; color:var(--secondary-text-color); font-size:.9rem; }
       .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:20px; }
       .summary article,.filters,.table-wrap,.metadata,.editor,.usages,.reviews { background:var(--card-background-color); border:1px solid var(--divider-color); border-radius:var(--ha-card-border-radius, 12px); box-shadow:var(--ha-card-box-shadow, none); }
-      .summary article { padding:16px; display:flex; flex-direction:column; gap:4px; } .summary strong { font-size:1.65rem; color:var(--primary-color); } .summary span { color:var(--secondary-text-color); }
+      .summary article { position:relative; overflow:hidden; padding:16px; display:flex; flex-direction:column; gap:4px; } .summary article::before { content:""; position:absolute; inset:0 auto 0 0; width:4px; background:var(--primary-color); } .summary strong { font-size:1.65rem; color:var(--primary-color); } .summary span { color:var(--secondary-text-color); } .summary .tone-success::before { background:var(--success-color); } .summary .tone-success strong { color:var(--success-color); } .summary .tone-info::before { background:var(--info-color, var(--primary-color)); } .summary .tone-info strong { color:var(--info-color, var(--primary-color)); } .summary .tone-warning::before { background:var(--warning-color); } .summary .tone-warning strong { color:var(--warning-color); } .summary .tone-muted::before { background:var(--disabled-text-color); } .summary .tone-neutral::before { background:var(--secondary-text-color); }
       .filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:12px; padding:16px; margin-bottom:18px; } .filters .search { grid-column:span 2; }
       label { display:flex; flex-direction:column; gap:6px; font-size:.9rem; } label>span,legend { font-weight:600; } label small { color:var(--secondary-text-color); font-weight:400; }
       input,select,textarea { width:100%; color:var(--primary-text-color); background:var(--input-fill-color, var(--secondary-background-color)); border:1px solid var(--input-idle-line-color, var(--divider-color)); border-radius:8px; padding:10px 12px; } textarea { resize:vertical; }
       .result-count { color:var(--secondary-text-color); margin:0 0 8px 4px; } .table-wrap { overflow:auto; } table { width:100%; border-collapse:collapse; min-width:980px; } th,td { padding:13px 12px; text-align:left; border-bottom:1px solid var(--divider-color); } th { color:var(--secondary-text-color); font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; } tbody tr { cursor:pointer; } tbody tr:hover { background:var(--secondary-background-color); } tbody tr:last-child td { border-bottom:0; } tr.uninstalled { opacity:.72; }
+      .hero-title { display:flex; align-items:center; gap:14px; } .hero-icon { display:grid; place-items:center; width:52px; height:52px; color:var(--text-primary-color); background:var(--primary-color); border-radius:16px; box-shadow:var(--ha-card-box-shadow, none); } .hero-icon ha-icon { --mdc-icon-size:28px; }
       .integration-cell { display:flex; align-items:center; gap:12px; min-width:200px; } .integration-cell strong,.integration-cell small { display:block; } .integration-cell small,td small { color:var(--secondary-text-color); margin-top:3px; }
-      .item-icon { width:40px; height:40px; object-fit:contain; flex:0 0 40px; border-radius:8px; } .item-icon.fallback { display:grid; place-items:center; color:var(--primary-color); background:var(--secondary-background-color); }
-      .badge { display:inline-flex; border:1px solid var(--divider-color); background:var(--secondary-background-color); border-radius:999px; padding:3px 9px; white-space:nowrap; } .badge.success { color:var(--success-color); } .badge.muted { color:var(--secondary-text-color); } .stars,.star-button.selected { color:var(--warning-color); }
+      .item-icon-wrap { display:grid; place-items:center; width:40px; height:40px; flex:0 0 40px; } .item-icon { width:40px; height:40px; object-fit:contain; border-radius:8px; } .item-icon.fallback { display:grid; place-items:center; color:var(--primary-color); background:var(--secondary-background-color); border:1px solid var(--divider-color); }
+      .category-label { display:inline-flex; align-items:center; gap:6px; color:var(--secondary-text-color); } .category-label ha-icon { --mdc-icon-size:18px; color:var(--primary-color); }
+      .badge { display:inline-flex; border:1px solid var(--divider-color); background:var(--secondary-background-color); border-radius:999px; padding:3px 9px; white-space:nowrap; } .badge.success,.badge.store-marketplace { color:var(--success-color); border-color:color-mix(in srgb, var(--success-color) 45%, var(--divider-color)); } .badge.testing,.badge.info { color:var(--info-color, var(--primary-color)); } .badge.warning,.badge.active { color:var(--warning-color); } .badge.replace,.badge.archived { color:var(--error-color); } .badge.installed { color:var(--success-color); } .badge.muted,.badge.unused { color:var(--secondary-text-color); } .badge.store-hacs { color:var(--primary-color); } .stars,.star-button.selected { color:var(--warning-color); }
       .message { border:1px solid var(--divider-color); border-left:4px solid var(--primary-color); background:var(--card-background-color); border-radius:8px; padding:12px 14px; margin-bottom:16px; } .message.error { border-left-color:var(--error-color); } .message.warning { border-left-color:var(--warning-color); }
       .loading,.empty { text-align:center; padding:56px 24px; color:var(--secondary-text-color); } .loading { display:flex; justify-content:center; gap:10px; } .spinner { width:20px; height:20px; border:2px solid var(--divider-color); border-top-color:var(--primary-color); border-radius:50%; animation:spin .8s linear infinite; } @keyframes spin { to { transform:rotate(360deg); } }
       .overlay { position:fixed; z-index:10; inset:0; background:var(--mdc-dialog-scrim-color, rgba(0,0,0,.45)); display:flex; justify-content:flex-end; } .dialog { width:min(720px,100%); height:100%; overflow:auto; background:var(--primary-background-color); box-shadow:var(--ha-card-box-shadow); }

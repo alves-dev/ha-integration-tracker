@@ -35,6 +35,7 @@
 - Added Marketplace discovery for Home Assistant 2026.11+ with HACS fallback for older versions.
 - Preserved the historical `hacs` source identity across the discovery backend migration.
 - Removed the ordering dependency on the HACS custom integration.
+- Added separate Marketplace/HACS store display, automatic brand icons, category fallbacks, and theme-aware panel status styling.
 
 ## 2026.9.1
 

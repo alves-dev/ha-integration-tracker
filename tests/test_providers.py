@@ -65,6 +65,8 @@ async def test_marketplace_snapshot_preserves_hacs_identity():
     assert items[0].version == "1.2.0"
     assert items[0].available_version == "1.3.0"
     assert items[0].provider_data["pending_update"] is True
+    assert items[0].provider_data["store"] == "marketplace"
+    assert items[0].icon == "https://brands.home-assistant.io/example/icon.png"
 
 
 @pytest.mark.asyncio
@@ -125,3 +127,4 @@ async def test_legacy_hacs_backend_remains_supported():
     items = await CommunityStoreProvider(hass).async_discover()
 
     assert items[0].item_id == "hacs:owner/legacy"
+    assert items[0].provider_data["store"] == "hacs"

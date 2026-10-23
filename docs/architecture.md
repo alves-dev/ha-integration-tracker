@@ -3,7 +3,7 @@
 Integration Tracker separates provider data from user-owned lifecycle data.
 
 ```text
-HACS provider → provider snapshot → source-neutral registry → HA Store
+Community-store provider → provider snapshot → source-neutral registry → HA Store
                                       ↓
                                 WebSocket API
                                       ↓
@@ -13,7 +13,7 @@ HACS provider → provider snapshot → source-neutral registry → HA Store
 ## Components
 
 - `providers/base.py` defines the provider contract. A provider returns a complete successful snapshot or raises an error.
-- `providers/hacs.py` is the only HACS-aware module. It converts HACS runtime objects into `ProviderItem` values.
+- `providers/community.py` selects the active community store. `providers/hacs.py` and `providers/marketplace.py` convert runtime objects into `ProviderItem` values.
 - `registry.py` owns synchronization, user edits, usages, reviews, and persistence boundaries.
 - `storage.py` adapts the registry to Home Assistant `Store` storage.
 - `websocket.py` exposes administrator-only operations used by the panel.
@@ -21,7 +21,7 @@ HACS provider → provider snapshot → source-neutral registry → HA Store
 
 ## Identity and ownership
 
-The stable item identifier is `<source>:<repository>` with a case-normalized repository name. For example, `hacs:romrider/apexcharts-card`.
+The stable item identifier is `<source>:<repository>` with a case-normalized repository name. For example, `hacs:romrider/apexcharts-card`. The provider-owned `provider_data.store` field identifies the current installation backend for display, so Marketplace items can be shown as Marketplace without changing historical IDs.
 
 Provider synchronization owns name, repository URL, category, icon, versions, provider metadata, and installed state. It cannot update rating, lifecycle status, notes, tags, usages, discovery time, or review history.
 

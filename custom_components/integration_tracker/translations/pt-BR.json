@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Configurar o Integration Tracker",
-        "description": "Crie um registro persistente dos repositórios instalados pelo HACS."
+        "description": "Crie um registro persistente dos repositórios instalados pelo HACS ou Marketplace."
       }
     },
     "abort": {

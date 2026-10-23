@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Set up Integration Tracker",
-        "description": "Create a persistent registry for repositories installed through HACS."
+        "description": "Create a persistent registry for repositories installed through HACS or Marketplace."
       }
     },
     "abort": {

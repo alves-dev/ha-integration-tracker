@@ -11,7 +11,7 @@ HACS or Marketplace remains responsible for installation and updates. Integratio
 
 ## Features
 
-- Discovers installed HACS integrations, plugins, themes, scripts, and other repository categories.
+- Discovers installed Marketplace or HACS integrations, plugins, themes, scripts, and other repository categories.
 - Keeps a persistent record of installed and uninstalled repositories.
 - Provides ratings from one to three stars, lifecycle statuses, multiline notes, and reusable tags.
 - Tracks manual usages with optional Home Assistant or external links.
