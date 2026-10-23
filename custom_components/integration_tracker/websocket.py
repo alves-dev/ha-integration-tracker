@@ -300,6 +300,7 @@ def _usage_result(usage) -> dict[str, Any]:
         "detector": usage.detector,
         "confidence": usage.confidence,
         "confirmed": usage.confirmed,
+        "ignored": usage.ignored,
         "stale": usage.stale,
         "last_seen_at": usage.last_seen_at,
         "evidence": usage.evidence,

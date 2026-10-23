@@ -18,6 +18,7 @@ const USAGE_TYPES = [
   "automation",
   "script",
   "integration",
+  "resource",
   "other",
 ];
 
@@ -27,6 +28,7 @@ const USAGE_ICONS = {
   automation: "mdi:robot",
   script: "mdi:script-text",
   integration: "mdi:puzzle",
+  resource: "mdi:script-text-outline",
   other: "mdi:link",
 };
 
@@ -272,6 +274,8 @@ class IntegrationTrackerPanel extends HTMLElement {
       this.render();
     } else if (action === "sync") {
       await this._sync(actionTarget);
+    } else if (action === "detect-usages") {
+      await this._detectUsages(actionTarget);
     } else if (action === "review") {
       await this._review(actionTarget);
     } else if (action === "rating") {
@@ -288,6 +292,8 @@ class IntegrationTrackerPanel extends HTMLElement {
       await this._removeUsage(actionTarget);
     } else if (action === "usage-link") {
       this._openUrl(actionTarget.dataset.url);
+    } else if (["confirm-usage", "ignore-usage", "convert-usage"].includes(action)) {
+      await this._moderateUsage(actionTarget, action);
     }
   }
 
@@ -333,6 +339,28 @@ class IntegrationTrackerPanel extends HTMLElement {
     const ok = await this._runMutation(button, { type: "integration_tracker/sync" });
     if (button.isConnected) button.textContent = previousText;
     if (ok) this._announce("Synchronization completed");
+  }
+
+  async _detectUsages(button) {
+    const previousText = button.textContent;
+    button.textContent = "Detecting…";
+    const ok = await this._runMutation(button, { type: "integration_tracker/usage/detect" });
+    if (button.isConnected) button.textContent = previousText;
+    if (ok) this._announce("Usage detection completed");
+  }
+
+  async _moderateUsage(button, action) {
+    const command = {
+      "confirm-usage": "integration_tracker/usage/confirm",
+      "ignore-usage": "integration_tracker/usage/ignore",
+      "convert-usage": "integration_tracker/usage/convert",
+    }[action];
+    const ok = await this._runMutation(button, {
+      type: command,
+      item_id: this._selectedId,
+      usage_id: button.dataset.usageId,
+    });
+    if (ok) this._announce("Usage updated");
   }
 
   async _review(button) {
@@ -435,6 +463,7 @@ class IntegrationTrackerPanel extends HTMLElement {
           <span>Last synchronized: ${escapeHtml(lastSync)}</span>
           <div class="sync-actions">
             <button class="secondary" data-action="open-settings" ${this._saving ? "disabled" : ""}>Open settings</button>
+            <button class="secondary" data-action="detect-usages" ${this._saving ? "disabled" : ""}>Detect usages</button>
             <button class="primary" data-action="sync" ${this._saving ? "disabled" : ""}>Sync now</button>
           </div>
         </div>
@@ -612,6 +641,8 @@ class IntegrationTrackerPanel extends HTMLElement {
   _renderUsage(usage) {
     return `<li><div class="usage-main"><ha-icon icon="${USAGE_ICONS[usage.type] || USAGE_ICONS.other}"></ha-icon><div><strong>${escapeHtml(usage.name)}</strong><small>${escapeHtml(usage.type)}${usage.url ? ` · ${escapeHtml(usage.url)}` : ""}</small></div></div><div class="row-actions">
       ${usage.url ? `<button class="text-button" data-action="usage-link" data-url="${escapeHtml(usage.url)}">Open</button>` : ""}
+      ${usage.source === "detected" && !usage.confirmed && !usage.ignored ? `<button class="text-button" data-action="confirm-usage" data-usage-id="${escapeHtml(usage.id)}">Confirm</button><button class="text-button" data-action="ignore-usage" data-usage-id="${escapeHtml(usage.id)}">Ignore</button>` : ""}
+      ${usage.source === "detected" ? `<button class="text-button" data-action="convert-usage" data-usage-id="${escapeHtml(usage.id)}">Keep manually</button>` : ""}
       <button class="text-button" data-action="edit-usage" data-usage-id="${escapeHtml(usage.id)}">Edit</button>
       <button class="text-button danger" data-action="remove-usage" data-usage-id="${escapeHtml(usage.id)}">Remove</button>
     </div></li>`;

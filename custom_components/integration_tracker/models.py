@@ -56,6 +56,7 @@ class Usage:
     detector: str | None = None
     confidence: str | None = None
     confirmed: bool = True
+    ignored: bool = False
     stale: bool = False
     last_seen_at: str | None = None
     evidence: dict[str, Any] = field(default_factory=dict)
@@ -93,6 +94,7 @@ class Usage:
             detector=detector,
             confidence=confidence,
             confirmed=False,
+            ignored=False,
             last_seen_at=seen_at,
             evidence=evidence,
         )
@@ -110,6 +112,7 @@ class Usage:
             detector=data.get("detector") or None,
             confidence=data.get("confidence") or None,
             confirmed=bool(data.get("confirmed", data.get("source") != "detected")),
+            ignored=bool(data.get("ignored", False)),
             stale=bool(data.get("stale", False)),
             last_seen_at=data.get("last_seen_at") or None,
             evidence=dict(data.get("evidence") or {}),

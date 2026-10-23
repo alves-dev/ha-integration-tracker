@@ -248,7 +248,7 @@ class IntegrationRegistry:
             if usage.source != "detected":
                 raise RegistryError("Only detected usages can be ignored")
             usage.confirmed = False
-            usage.stale = True
+            usage.ignored = True
             await self._async_save()
             return usage
 
@@ -263,6 +263,7 @@ class IntegrationRegistry:
             usage.detector = None
             usage.confidence = None
             usage.confirmed = True
+            usage.ignored = False
             usage.stale = False
             usage.last_seen_at = None
             usage.evidence = {}
