@@ -200,12 +200,38 @@ class IntegrationTrackerPanel extends HTMLElement {
     }
   }
 
-  _handleInput(event) {
+  async _handleInput(event) {
     const target = event.target;
+    const setting = target.dataset?.setting;
+    if (setting === "include_core" && event.type === "change") {
+      await this._saveSettings(target.checked);
+      return;
+    }
     const filter = target.dataset?.filter;
     if (!filter) return;
     this._filters[filter] = target.value;
     this._renderResults();
+  }
+
+  async _saveSettings(includeCore) {
+    if (this._saving) return;
+    this._saving = true;
+    this._error = "";
+    this.render();
+    try {
+      await this._hass.callWS({
+        type: "integration_tracker/settings/update",
+        include_core: includeCore,
+      });
+      this._announce("Settings saved");
+      await this.refresh();
+    } catch (error) {
+      this._error = error?.message || String(error);
+      this.render();
+    } finally {
+      this._saving = false;
+      this.render();
+    }
   }
 
   async _handleClick(event) {
@@ -375,7 +401,7 @@ class IntegrationTrackerPanel extends HTMLElement {
     return `
       <header class="page-hero">
         <div class="hero-title">
-          <span class="hero-icon"><ha-icon icon="mdi:package-variant-closed-check"></ha-icon></span>
+          <span class="hero-icon"><img src="/api/brands/integration/integration_tracker/icon.png?placeholder=no" alt="" /></span>
           <div>
           <h1>Integration Tracker</h1>
           <p>Inventory, context, lifecycle, and review for your community repositories.</p>
@@ -398,7 +424,15 @@ class IntegrationTrackerPanel extends HTMLElement {
     if (!this._data) {
       return `<div class="empty"><h2>Registry unavailable</h2><p>Reload the page to try again.</p></div>`;
     }
-    return `${this._renderSummary()}${this._renderFilters()}<section id="results">${this._renderResultsHtml()}</section>`;
+    return `${this._renderSettings()}${this._renderSummary()}${this._renderFilters()}<section id="results">${this._renderResultsHtml()}</section>`;
+  }
+
+  _renderSettings() {
+    const includeCore = this._data.settings?.include_core === true;
+    return `<section class="settings-card" aria-labelledby="settings-title">
+      <div class="section-heading"><div><h2 id="settings-title">Settings</h2><p>Choose which sources appear in this panel.</p></div></div>
+      <label class="setting-toggle"><input type="checkbox" data-setting="include_core" ${includeCore ? "checked" : ""} ${this._saving ? "disabled" : ""}><span><strong>Show configured Home Assistant Core integrations</strong><small>Includes only Core integrations with a configured entry. Default: off.</small></span></label>
+    </section>`;
   }
 
   _renderSummary() {
@@ -582,12 +616,13 @@ class IntegrationTrackerPanel extends HTMLElement {
       .sync-block { display:flex; flex-direction:column; align-items:flex-end; gap:8px; color:var(--secondary-text-color); font-size:.9rem; }
       .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:20px; }
       .summary article,.filters,.table-wrap,.metadata,.editor,.usages,.reviews { background:var(--card-background-color); border:1px solid var(--divider-color); border-radius:var(--ha-card-border-radius, 12px); box-shadow:var(--ha-card-box-shadow, none); }
+      .settings-card { background:var(--card-background-color); border:1px solid var(--divider-color); border-radius:var(--ha-card-border-radius, 12px); box-shadow:var(--ha-card-box-shadow, none); padding:16px; margin-bottom:20px; } .settings-card h2 { margin-bottom:4px; } .settings-card p { color:var(--secondary-text-color); margin-bottom:0; } .setting-toggle { display:flex; flex-direction:row; align-items:flex-start; gap:12px; margin-top:16px; cursor:pointer; } .setting-toggle input { width:20px; height:20px; margin:2px 0 0; accent-color:var(--primary-color); } .setting-toggle strong,.setting-toggle small { display:block; } .setting-toggle small { color:var(--secondary-text-color); margin-top:4px; }
       .summary article { position:relative; overflow:hidden; padding:16px; display:flex; flex-direction:column; gap:4px; } .summary article::before { content:""; position:absolute; inset:0 auto 0 0; width:4px; background:var(--primary-color); } .summary strong { font-size:1.65rem; color:var(--primary-color); } .summary span { color:var(--secondary-text-color); } .summary .tone-success::before { background:var(--success-color); } .summary .tone-success strong { color:var(--success-color); } .summary .tone-info::before { background:var(--info-color, var(--primary-color)); } .summary .tone-info strong { color:var(--info-color, var(--primary-color)); } .summary .tone-warning::before { background:var(--warning-color); } .summary .tone-warning strong { color:var(--warning-color); } .summary .tone-muted::before { background:var(--disabled-text-color); } .summary .tone-neutral::before { background:var(--secondary-text-color); }
       .filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:12px; padding:16px; margin-bottom:18px; } .filters .search { grid-column:span 2; }
       label { display:flex; flex-direction:column; gap:6px; font-size:.9rem; } label>span,legend { font-weight:600; } label small { color:var(--secondary-text-color); font-weight:400; }
       input,select,textarea { width:100%; color:var(--primary-text-color); background:var(--input-fill-color, var(--secondary-background-color)); border:1px solid var(--input-idle-line-color, var(--divider-color)); border-radius:8px; padding:10px 12px; } textarea { resize:vertical; }
       .result-count { color:var(--secondary-text-color); margin:0 0 8px 4px; } .table-wrap { overflow:auto; } table { width:100%; border-collapse:collapse; min-width:980px; } th,td { padding:13px 12px; text-align:left; border-bottom:1px solid var(--divider-color); } th { color:var(--secondary-text-color); font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; } tbody tr { cursor:pointer; } tbody tr:hover { background:var(--secondary-background-color); } tbody tr:last-child td { border-bottom:0; } tr.uninstalled { opacity:.72; }
-      .hero-title { display:flex; align-items:center; gap:14px; } .hero-icon { display:grid; place-items:center; width:52px; height:52px; color:var(--text-primary-color); background:var(--primary-color); border-radius:16px; box-shadow:var(--ha-card-box-shadow, none); } .hero-icon ha-icon { --mdc-icon-size:28px; }
+      .hero-title { display:flex; align-items:center; gap:14px; } .hero-icon { display:grid; place-items:center; width:52px; height:52px; padding:7px; background:var(--primary-color); border-radius:16px; box-shadow:var(--ha-card-box-shadow, none); } .hero-icon img { width:100%; height:100%; object-fit:contain; border-radius:10px; }
       .integration-cell { display:flex; align-items:center; gap:12px; min-width:200px; } .integration-cell strong,.integration-cell small { display:block; } .integration-cell small,td small { color:var(--secondary-text-color); margin-top:3px; }
       .item-icon-wrap { display:grid; place-items:center; width:40px; height:40px; flex:0 0 40px; } .item-icon { width:40px; height:40px; object-fit:contain; border-radius:8px; } .item-icon.fallback { display:grid; place-items:center; color:var(--primary-color); background:var(--secondary-background-color); border:1px solid var(--divider-color); }
       [hidden] { display:none !important; }

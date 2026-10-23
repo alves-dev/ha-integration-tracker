@@ -54,6 +54,7 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
         websocket_update_usage,
         websocket_remove_usage,
         websocket_mark_reviewed,
+        websocket_update_settings,
         websocket_sync,
     ):
         websocket_api.async_register_command(hass, command)
@@ -69,7 +70,16 @@ def websocket_list_items(hass, connection, msg) -> None:
         runtime = _runtime(hass)
         interval = _interval(runtime)
         items = runtime.registry.list_items()
-        if not runtime.config_entry.options.get(CONF_INCLUDE_CORE, DEFAULT_INCLUDE_CORE):
+        include_core = runtime.config_entry.options.get(
+            CONF_INCLUDE_CORE, DEFAULT_INCLUDE_CORE
+        )
+        if include_core:
+            items = [
+                item
+                for item in items
+                if item.source.casefold() != "core" or item.installed
+            ]
+        else:
             items = [item for item in items if item.source.casefold() != "core"]
         serialized = [item.to_dict(interval) for item in items]
         connection.send_result(
@@ -80,6 +90,9 @@ def websocket_list_items(hass, connection, msg) -> None:
                 "last_synced_at": runtime.registry.last_synced_at,
                 "sync_error": runtime.sync_error,
                 "review_interval_days": interval,
+                "settings": {
+                    "include_core": include_core
+                },
                 "tags": sorted({tag for item in items for tag in item.tags}, key=str.casefold),
                 "categories": sorted(
                     {item.category for item in items if item.category}, key=str.casefold
@@ -95,6 +108,30 @@ def websocket_list_items(hass, connection, msg) -> None:
             },
         )
     except RegistryError as err:
+        _send_domain_error(connection, msg, err)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{WS_PREFIX}/settings/update",
+        vol.Required("include_core"): bool,
+    }
+)
+@websocket_api.async_response
+async def websocket_update_settings(hass: HomeAssistant, connection, msg) -> None:
+    """Update panel settings and synchronize the affected providers."""
+    try:
+        runtime = _runtime(hass)
+        options = dict(runtime.config_entry.options)
+        options[CONF_INCLUDE_CORE] = msg["include_core"]
+        hass.config_entries.async_update_entry(runtime.config_entry, options=options)
+        await runtime.async_sync()
+        connection.send_result(
+            msg["id"],
+            {"settings": {"include_core": options[CONF_INCLUDE_CORE]}},
+        )
+    except Exception as err:
         _send_domain_error(connection, msg, err)
 
 
