@@ -30,6 +30,12 @@
 *This changelog documents the state when Context Mesh was added.*
 *Future changes will be tracked below.*
 
+## 2026.10.0
+
+- Added Marketplace discovery for Home Assistant 2026.11+ with HACS fallback for older versions.
+- Preserved the historical `hacs` source identity across the discovery backend migration.
+- Removed the ordering dependency on the HACS custom integration.
+
 ## 2026.9.1
 
 - Added persistent Home Assistant repair issues for never-reviewed and review-overdue tracked integrations.

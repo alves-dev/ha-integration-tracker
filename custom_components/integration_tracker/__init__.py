@@ -17,7 +17,7 @@ from .const import (
     SYNC_INTERVAL,
 )
 from .panel import async_register_panel, async_unregister_panel
-from .providers import HacsProvider
+from .providers import CommunityStoreProvider
 from .registry import IntegrationRegistry
 from .repairs import async_update_review_issues
 from .storage import RegistryStorage
@@ -33,7 +33,7 @@ class IntegrationTrackerRuntime:
     hass: HomeAssistant
     config_entry: ConfigEntry
     registry: IntegrationRegistry
-    provider: HacsProvider
+    provider: CommunityStoreProvider
     sync_error: str | None = None
 
     async def async_sync(self) -> dict[str, int]:
@@ -65,7 +65,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Integration Tracker from a config entry."""
     registry = IntegrationRegistry(RegistryStorage(hass))
     await registry.async_load()
-    runtime = IntegrationTrackerRuntime(hass, entry, registry, HacsProvider(hass))
+    runtime = IntegrationTrackerRuntime(
+        hass, entry, registry, CommunityStoreProvider(hass)
+    )
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime
 
     async_register_websocket_commands(hass)
@@ -76,7 +78,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             await runtime.async_sync()
         except Exception as err:
-            _LOGGER.warning("HACS synchronization skipped: %s", err)
+            _LOGGER.warning("Community-store synchronization skipped: %s", err)
 
     await _run_sync()
 

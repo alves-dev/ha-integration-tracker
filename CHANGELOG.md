@@ -2,6 +2,17 @@
 
 All user-relevant changes are documented in this file.
 
+## [2026.10.0] - 2026-10-23
+
+### Added
+
+- Added Home Assistant Marketplace discovery for Home Assistant 2026.11 and newer.
+
+### Changed
+
+- Preserved existing `hacs:owner/repository` tracker identities during the Marketplace migration.
+- Kept HACS discovery compatibility for older Home Assistant versions.
+
 ## [2026.9.1] - 2026-09-22
 
 ### Added
