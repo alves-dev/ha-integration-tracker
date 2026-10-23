@@ -8,7 +8,13 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
-from .const import CONF_REVIEW_INTERVAL_DAYS, DEFAULT_REVIEW_INTERVAL_DAYS, DOMAIN
+from .const import (
+    CONF_INCLUDE_CORE,
+    CONF_REVIEW_INTERVAL_DAYS,
+    DEFAULT_INCLUDE_CORE,
+    DEFAULT_REVIEW_INTERVAL_DAYS,
+    DOMAIN,
+)
 from .registry import RegistryError
 from .review import build_summary
 
@@ -63,6 +69,8 @@ def websocket_list_items(hass, connection, msg) -> None:
         runtime = _runtime(hass)
         interval = _interval(runtime)
         items = runtime.registry.list_items()
+        if not runtime.config_entry.options.get(CONF_INCLUDE_CORE, DEFAULT_INCLUDE_CORE):
+            items = [item for item in items if item.source.casefold() != "core"]
         serialized = [item.to_dict(interval) for item in items]
         connection.send_result(
             msg["id"],

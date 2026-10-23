@@ -15,7 +15,7 @@ Community-store provider ──┴→ provider snapshots → source-neutral regi
 
 - `providers/base.py` defines the provider contract. A provider returns a complete successful snapshot or raises an error.
 - `providers/community.py` selects the active community store. `providers/hacs.py` and `providers/marketplace.py` convert runtime objects into `ProviderItem` values.
-- `providers/core.py` discovers built-in integrations currently loaded by Home Assistant. Core records use the separate `core:<domain>` identity and are synchronized independently from community-store records.
+- `providers/core.py` discovers configured built-in integrations when enabled in options. Core records use the separate `core:<domain>` identity and are synchronized independently from community-store records.
 - `registry.py` owns synchronization, user edits, usages, reviews, and persistence boundaries.
 - `storage.py` adapts the registry to Home Assistant `Store` storage.
 - `websocket.py` exposes administrator-only operations used by the panel.

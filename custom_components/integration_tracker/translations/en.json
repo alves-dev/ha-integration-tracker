@@ -17,7 +17,8 @@
         "title": "Review settings",
         "description": "Choose how often tracked items should be reviewed.",
         "data": {
-          "review_interval_days": "Review interval (days)"
+          "review_interval_days": "Review interval (days)",
+          "include_core": "Include configured Home Assistant Core integrations"
         }
       }
     }

@@ -20,10 +20,8 @@ class CoreProvider(IntegrationProvider):
         self._hass = hass
 
     async def async_discover(self) -> list[ProviderItem]:
-        """Return loaded built-in integrations as a complete snapshot."""
-        domains = sorted(
-            domain for domain in self._hass.config.components if "." not in domain
-        )
+        """Return configured built-in integrations as a complete snapshot."""
+        domains = sorted(self._hass.config_entries.async_domains())
         try:
             integrations = await async_get_integrations(self._hass, domains)
         except Exception as err:

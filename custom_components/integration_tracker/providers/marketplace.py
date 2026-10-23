@@ -63,7 +63,9 @@ class MarketplaceProvider(IntegrationProvider):
                 continue
 
             domain = _string_value(getattr(data, "domain", None))
-            icon = await async_resolve_icon(self._hass, domain)
+            icon = await async_resolve_icon(
+                self._hass, domain, getattr(repository, "localpath", None)
+            )
             discovered.append(
                 ProviderItem(
                     source=self.source,

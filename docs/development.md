@@ -34,4 +34,4 @@ dev/stop-ha.sh
 
 The panel uses browser-native JavaScript and Home Assistant custom elements. It does not have a Node build step. The backend serves `frontend/integration-tracker-panel.js` directly through a versioned static URL.
 
-When testing the panel, verify an administrator can open and mutate it, a non-administrator cannot see or call it, and the interface remains legible under light, dark, and custom themes. Also check narrow screens, empty registries, community-store failure, icon fallbacks, and loading states.
+When testing the panel, verify an administrator can open and mutate it, a non-administrator cannot see or call it, and the interface remains legible under light, dark, and custom themes. Also check narrow screens, empty registries, community-store failure, the optional configured-Core inventory, real brand icons, icon fallbacks, and loading states.

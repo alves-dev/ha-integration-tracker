@@ -15,9 +15,10 @@
     "step": {
       "init": {
         "title": "Configurações de revisão",
-        "description": "Escolha com que frequência os itens rastreados devem ser revisados.",
+        "description": "Escolha com que frequência os itens rastreados devem ser revisados e se as integrações Core configuradas devem aparecer.",
         "data": {
-          "review_interval_days": "Intervalo de revisão (dias)"
+          "review_interval_days": "Intervalo de revisão (dias)",
+          "include_core": "Exibir integrações Core configuradas do Home Assistant"
         }
       }
     }

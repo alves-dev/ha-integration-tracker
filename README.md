@@ -54,7 +54,7 @@ Integration Tracker is available as a HACS custom repository and is not currentl
 
 ## Normal operation
 
-Open **Integration Tracker** from the sidebar. The integration synchronizes at setup, retries after HACS startup when necessary, and refreshes every six hours. Use **Sync now** after installing or removing repositories when you want the panel updated immediately.
+Open **Integration Tracker** from the sidebar. The integration synchronizes at setup, retries after Marketplace startup when necessary, and refreshes every six hours. By default it lists only community-store repositories; use the Integration Tracker options to include configured Home Assistant Core integrations. Use **Sync now** after installing or removing repositories when you want the panel updated immediately.
 
 Select a row to edit tracking data, manage known usages, open the repository, or mark the item as reviewed. Set the global review interval from the integration's **Configure** action in **Settings → Devices & services**. The default is 90 days.
 

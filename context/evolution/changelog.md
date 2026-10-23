@@ -36,7 +36,8 @@
 - Preserved the historical `hacs` source identity across the discovery backend migration.
 - Removed the ordering dependency on the HACS custom integration.
 - Added separate Marketplace/HACS store display, automatic brand icons, category fallbacks, and theme-aware panel status styling.
-- Added independently synchronized records for loaded Home Assistant Core integrations.
+- Added optional, independently synchronized records for configured Home Assistant Core integrations.
+- Improved icon resolution with the installed repository path and Home Assistant's authenticated brand route.
 
 ## 2026.9.1
 

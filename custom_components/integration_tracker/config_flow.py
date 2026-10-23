@@ -7,9 +7,12 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.helpers import config_validation as cv
 
 from .const import (
+    CONF_INCLUDE_CORE,
     CONF_REVIEW_INTERVAL_DAYS,
+    DEFAULT_INCLUDE_CORE,
     DEFAULT_REVIEW_INTERVAL_DAYS,
     DOMAIN,
     MAX_REVIEW_INTERVAL_DAYS,
@@ -38,7 +41,7 @@ class IntegrationTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class IntegrationTrackerOptionsFlow(config_entries.OptionsFlow):
-    """Configure the review interval."""
+    """Configure the review interval and inventory sources."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         """Manage Integration Tracker options."""
@@ -48,6 +51,9 @@ class IntegrationTrackerOptionsFlow(config_entries.OptionsFlow):
         current = self.config_entry.options.get(
             CONF_REVIEW_INTERVAL_DAYS, DEFAULT_REVIEW_INTERVAL_DAYS
         )
+        include_core = self.config_entry.options.get(
+            CONF_INCLUDE_CORE, DEFAULT_INCLUDE_CORE
+        )
         schema = vol.Schema(
             {
                 vol.Required(CONF_REVIEW_INTERVAL_DAYS, default=current): vol.All(
@@ -56,7 +62,8 @@ class IntegrationTrackerOptionsFlow(config_entries.OptionsFlow):
                         min=MIN_REVIEW_INTERVAL_DAYS,
                         max=MAX_REVIEW_INTERVAL_DAYS,
                     ),
-                )
+                ),
+                vol.Required(CONF_INCLUDE_CORE, default=include_core): cv.boolean,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

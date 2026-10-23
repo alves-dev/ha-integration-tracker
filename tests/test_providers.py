@@ -72,7 +72,7 @@ async def test_marketplace_snapshot_preserves_hacs_identity():
     assert items[0].available_version == "1.3.0"
     assert items[0].provider_data["pending_update"] is True
     assert items[0].provider_data["store"] == "marketplace"
-    assert items[0].icon == "https://brands.home-assistant.io/example/icon.png"
+    assert items[0].icon == "/api/brands/integration/example/icon.png?placeholder=no"
 
 
 @pytest.mark.asyncio
@@ -150,7 +150,9 @@ async def test_core_provider_discovers_loaded_built_in_integrations():
     core = FakeIntegration("Example Core")
     custom = SimpleNamespace(is_built_in=False, manifest={"name": "Custom"})
     hass = SimpleNamespace(
-        config=SimpleNamespace(components={"example_core", "custom_component"}),
+        config_entries=SimpleNamespace(
+            async_domains=lambda: ["example_core", "custom_component"]
+        ),
     )
 
     with (

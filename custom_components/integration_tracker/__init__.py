@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
 from .const import (
+    CONF_INCLUDE_CORE,
     CONF_REVIEW_INTERVAL_DAYS,
     DEFAULT_REVIEW_INTERVAL_DAYS,
     DOMAIN,
@@ -41,7 +42,12 @@ class IntegrationTrackerRuntime:
         """Synchronize and retain the latest error for the panel."""
         totals = {"created": 0, "updated": 0, "uninstalled": 0}
         errors: list[str] = []
-        for provider in (self.provider, self.core_provider):
+        providers = (
+            (self.provider, self.core_provider)
+            if self.config_entry.options.get(CONF_INCLUDE_CORE, False)
+            else (self.provider,)
+        )
+        for provider in providers:
             try:
                 result = await self.registry.async_sync(provider)
             except Exception as err:
