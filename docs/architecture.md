@@ -11,6 +11,12 @@ Community-store provider ──┴→ provider snapshots → source-neutral regi
                               admin custom panel
 ```
 
+Automatic usage detection runs after a successful synchronization or through an
+administrator WebSocket command. It reads Home Assistant configuration/state,
+normalizes references from integrations, dashboards, automations, scripts, and
+Lovelace resources, then reconciles only detected usage records in the registry.
+Unavailable sources are non-destructive.
+
 ## Components
 
 - `providers/base.py` defines the provider contract. A provider returns a complete successful snapshot or raises an error.
@@ -26,6 +32,10 @@ Community-store provider ──┴→ provider snapshots → source-neutral regi
 The stable item identifier is `<source>:<repository>` with a case-normalized repository name. For example, `hacs:romrider/apexcharts-card`. The provider-owned `provider_data.store` field identifies the current installation backend for display, so Marketplace items can be shown as Marketplace without changing historical IDs.
 
 Provider synchronization owns name, repository URL, category, icon, versions, provider metadata, and installed state. It cannot update rating, lifecycle status, notes, tags, usages, discovery time, or review history.
+
+Usage discovery owns only records with `source: detected`. Manual usage records
+remain user-owned. Detected records use a detector-scoped stable key and retain
+evidence, confidence, confirmation, and stale state.
 
 When a successful provider snapshot omits a previously installed item from that provider, the registry marks it uninstalled and records the time. A provider exception leaves the entire registry unchanged. Rediscovery of the same identifier clears the uninstall time and reuses the original user data.
 

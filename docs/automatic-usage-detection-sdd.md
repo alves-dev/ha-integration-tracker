@@ -214,41 +214,43 @@ deve criar um agendador independente sem necessidade comprovada.
 
 ### Fase 1 — Modelo e registry
 
-- [ ] Evoluir `Usage` para suportar origem manual/detectada.
-- [ ] Adicionar confiança, evidência, `detection_key` e `last_seen_at`.
-- [ ] Implementar serialização compatível com registros existentes.
-- [ ] Implementar reconciliação de detecções no registry.
-- [ ] Preservar usos manuais durante todas as reconciliações.
-- [ ] Definir a transição de usos detectados ausentes para obsoletos.
-- [ ] Criar testes de reload, deduplicação e migração de dados.
+- [x] Evoluir `Usage` para suportar origem manual/detectada.
+- [x] Adicionar confiança, evidência, `detection_key` e `last_seen_at`.
+- [x] Implementar serialização compatível com registros existentes.
+- [x] Implementar reconciliação de detecções no registry.
+- [x] Preservar usos manuais durante todas as reconciliações.
+- [x] Definir a transição de usos detectados ausentes para obsoletos.
+- [x] Criar testes de reload, deduplicação e migração de dados.
 
 ### Fase 2 — Matching de integrações
 
-- [ ] Extrair fingerprints de `ProviderItem` e das integrações carregadas.
-- [ ] Mapear domínios, serviços, entidades e dispositivos.
-- [ ] Implementar associação de alta confiança.
-- [ ] Implementar classificação média/baixa sem confirmação automática.
-- [ ] Criar testes com integrações Core e customizadas.
+- [x] Extrair fingerprints de `ProviderItem` e das integrações carregadas.
+- [x] Mapear domínios, serviços e entidades.
+- [ ] Mapear dispositivos e áreas.
+- [x] Implementar associação de alta confiança.
+- [x] Implementar classificação média/baixa sem confirmação automática.
+- [x] Criar testes com integrações Core e customizadas.
 
 ### Fase 3 — Detector de dashboards
 
-- [ ] Implementar leitura do dashboard Lovelace armazenado.
-- [ ] Implementar leitura de dashboard YAML.
-- [ ] Extrair entidades e serviços usados por cartões.
-- [ ] Extrair cartões customizados.
-- [ ] Extrair recursos JavaScript externos.
-- [ ] Gerar links ou evidências de dashboard, view e cartão.
-- [ ] Criar testes para os dois formatos de dashboard.
+- [x] Implementar leitura do dashboard Lovelace armazenado.
+- [x] Implementar leitura de dashboard YAML.
+- [x] Extrair entidades e serviços usados por cartões.
+- [x] Extrair cartões customizados.
+- [x] Extrair recursos JavaScript externos.
+- [x] Gerar links ou evidências de dashboard, view e cartão.
+- [x] Criar testes para os dois formatos de dashboard.
 
 ### Fase 4 — Detectores de automações e scripts
 
-- [ ] Implementar leitura das automações da UI.
-- [ ] Implementar leitura das automações YAML.
-- [ ] Implementar leitura dos scripts da UI.
-- [ ] Implementar leitura dos scripts YAML.
-- [ ] Extrair entidades, dispositivos, eventos e serviços.
-- [ ] Detectar chamadas entre automações e scripts.
-- [ ] Criar testes para estruturas aninhadas e ações múltiplas.
+- [x] Implementar leitura das automações da UI.
+- [x] Implementar leitura das automações YAML.
+- [x] Implementar leitura dos scripts da UI.
+- [x] Implementar leitura dos scripts YAML.
+- [x] Extrair entidades e serviços.
+- [ ] Extrair dispositivos, áreas e eventos.
+- [ ] Detectar chamadas entre automações e scripts como dependências próprias.
+- [x] Criar testes para estruturas aninhadas e ações múltiplas.
 
 ### Fase 5 — Coordinator e ciclo de sincronização
 
