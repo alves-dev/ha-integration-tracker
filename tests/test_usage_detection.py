@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
+
 from custom_components.integration_tracker.models import ProviderItem, TrackedItem
+from custom_components.integration_tracker.usage_detection import coordinator
 from custom_components.integration_tracker.usage_detection.detectors import (
     ComponentRecord,
     detect_component_usages,
@@ -43,6 +46,56 @@ def test_iter_config_references_extracts_nested_entities_services_cards_and_reso
         ("card", "example-card"),
         ("resource", "/hacsfiles/example-card/card.js"),
     }
+
+
+def test_iter_config_references_extracts_entity_lists():
+    references = list(iter_config_references({"entities": ["example.one", "other.two"]}))
+
+    assert [(reference.kind, reference.value) for reference in references] == [
+        ("entity", "example.one"),
+        ("entity", "other.two"),
+    ]
+
+
+def test_iter_config_references_extracts_devices_areas_events_and_blueprints():
+    references = list(
+        iter_config_references(
+            {
+                "device_id": ["device-1"],
+                "area_id": "area-1",
+                "event_type": "example_event",
+                "use_blueprint": {"path": "owner/example/notify.yaml"},
+            }
+        )
+    )
+
+    assert {(reference.kind, reference.value) for reference in references} == {
+        ("device", "device-1"),
+        ("area", "area-1"),
+        ("event", "example_event"),
+        ("blueprint", "owner/example/notify.yaml"),
+    }
+
+
+def test_component_detector_matches_registry_resolved_device_reference():
+    item = tracked_item()
+    detections = detect_component_usages(
+        [item],
+        [
+            ComponentRecord(
+                "automation.one",
+                "Device automation",
+                None,
+                {"trigger": {"device_id": "device-1"}},
+            )
+        ],
+        "automations",
+        {"device-1": {"example"}},
+    )
+
+    assert len(detections) == 1
+    assert detections[0].confidence == "high"
+    assert detections[0].evidence["reference_type"] == "device"
 
 
 def test_component_detector_matches_domain_and_preserves_evidence():
@@ -92,3 +145,41 @@ def test_configured_integration_detector_only_returns_configured_domains():
     detections = detect_configured_integrations([item], {"example"})
     assert len(detections) == 1
     assert detections[0].type == "integration"
+
+
+@pytest.mark.asyncio
+async def test_storage_dashboard_fallback_loads_dashboard_and_resources(monkeypatch):
+    stored = {
+        "lovelace": {"config": {"views": [{"cards": [{"entity": "sun.sun"}]}]}},
+        "lovelace_dashboards": {
+            "items": [
+                {
+                    "id": "dashboard_testes",
+                    "title": "Testes",
+                    "url_path": "dashboard-testes",
+                    "mode": "storage",
+                }
+            ]
+        },
+        "lovelace.dashboard_testes": {
+            "config": {"views": [{"cards": [{"entity": "sun.sun"}]}]}
+        },
+        "lovelace_resources": {"items": [{"url": "/hacsfiles/example-card/card.js"}]},
+    }
+
+    class FakeStore:
+        def __init__(self, _hass, _version, key):
+            self.key = key
+
+        async def async_load(self):
+            return stored.get(self.key)
+
+    monkeypatch.setattr(coordinator, "Store", FakeStore)
+    records, loaded = await coordinator._async_load_storage_dashboards(object())
+
+    assert loaded == 3
+    assert {record.identifier for record in records} == {
+        "dashboard:lovelace",
+        "dashboard:dashboard-testes",
+        "resource:/hacsfiles/example-card/card.js",
+    }

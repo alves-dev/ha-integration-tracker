@@ -34,23 +34,46 @@ class ConfigReference:
 
 
 def iter_config_references(value: Any, path: str = "config") -> Iterator[ConfigReference]:
-    """Yield entity, service, custom card, and resource references."""
+    """Yield entity, service, device, event, custom card, and resource references."""
     if isinstance(value, Mapping):
         for key, child in value.items():
             child_path = f"{path}.{key}"
+            key_text = str(key).casefold()
             if isinstance(child, str):
-                key_text = str(key).casefold()
                 if key_text in {"service", "action", "service_template", "action_template"}:
                     if _SERVICE.match(child):
                         yield ConfigReference("service", child, child_path)
-                elif key_text in {"entity_id", "entity", "entities"} and _ENTITY_ID.match(
-                    child
-                ):
+                elif key_text in {"device_id", "device"}:
+                    yield ConfigReference("device", child, child_path)
+                elif key_text in {"area_id", "area"}:
+                    yield ConfigReference("area", child, child_path)
+                elif key_text in {"event", "event_type"}:
+                    yield ConfigReference("event", child, child_path)
+                elif key_text == "use_blueprint":
+                    yield ConfigReference("blueprint", child, child_path)
+                elif _ENTITY_ID.match(child):
                     yield ConfigReference("entity", child, child_path)
                 if child.startswith("custom:"):
                     yield ConfigReference("card", child.removeprefix("custom:"), child_path)
                 if _looks_like_resource(child):
                     yield ConfigReference("resource", child, child_path)
+            elif isinstance(child, Sequence) and key_text in {
+                "entity_id", "entity", "entities", "device_id", "devices", "area_id", "areas"
+            }:
+                for index, entity_id in enumerate(child):
+                    if not isinstance(entity_id, str):
+                        continue
+                    reference_type = "entity"
+                    if key_text in {"device_id", "devices"}:
+                        reference_type = "device"
+                    elif key_text in {"area_id", "areas"}:
+                        reference_type = "area"
+                    if reference_type != "entity" or _ENTITY_ID.match(entity_id):
+                        yield ConfigReference(reference_type, entity_id, f"{child_path}[{index}]")
+            elif key_text == "use_blueprint" and isinstance(child, Mapping):
+                blueprint_path = child.get("path")
+                if isinstance(blueprint_path, str):
+                    yield ConfigReference("blueprint", blueprint_path, child_path + ".path")
             yield from iter_config_references(child, child_path)
         return
     if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
@@ -59,14 +82,17 @@ def iter_config_references(value: Any, path: str = "config") -> Iterator[ConfigR
 
 
 def detect_component_usages(
-    items: Sequence[TrackedItem], records: Sequence[ComponentRecord], detector: str
+    items: Sequence[TrackedItem],
+    records: Sequence[ComponentRecord],
+    detector: str,
+    reference_domains: Mapping[str, set[str]] | None = None,
 ) -> list[DetectedUsage]:
     """Detect tracked integrations referenced by automation or script records."""
     detections: dict[tuple[str, str], DetectedUsage] = {}
     for record in records:
         for reference in iter_config_references(record.config):
             for item in items:
-                match = match_reference(item, reference)
+                match = match_reference(item, reference, reference_domains)
                 if match is None:
                     continue
                 key = f"{detector}:{record.identifier}:{reference.kind}:{reference.value}"
@@ -92,10 +118,12 @@ def detect_component_usages(
 
 
 def detect_dashboard_usages(
-    items: Sequence[TrackedItem], dashboards: Sequence[ComponentRecord]
+    items: Sequence[TrackedItem],
+    dashboards: Sequence[ComponentRecord],
+    reference_domains: Mapping[str, set[str]] | None = None,
 ) -> list[DetectedUsage]:
     """Detect tracked integrations referenced by Lovelace dashboards or resources."""
-    return detect_component_usages(items, dashboards, "dashboards")
+    return detect_component_usages(items, dashboards, "dashboards", reference_domains)
 
 
 def detect_configured_integrations(
@@ -127,10 +155,16 @@ def detect_configured_integrations(
     return detections
 
 
-def match_reference(item: TrackedItem, reference: ConfigReference) -> str | None:
+def match_reference(
+    item: TrackedItem,
+    reference: ConfigReference,
+    reference_domains: Mapping[str, set[str]] | None = None,
+) -> str | None:
     """Return the confidence for a reference matched to an item."""
     domain = _item_domain(item)
     value = reference.value.casefold()
+    if reference_domains and domain in reference_domains.get(value, set()):
+        return "high"
     if domain and (
         value == domain
         or value.startswith(f"{domain}.")

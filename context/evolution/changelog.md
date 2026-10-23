@@ -42,6 +42,9 @@
   usages, detector snapshots, registry reconciliation, WebSocket moderation, and
   panel actions.
 - Updated the integration version and panel asset cache key for validation.
+- Added stored-dashboard fallback loading and visible detection evidence in the panel.
+- Added structural reference detection for devices, areas, events, and blueprints.
+- Added scene component collection when Home Assistant exposes scene configurations.
 
 ## 2026.10.0
 

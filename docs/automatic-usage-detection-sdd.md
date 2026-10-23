@@ -2,8 +2,9 @@
 
 ## Status
 
-Proposto. Este documento descreve o desenho e as tarefas de implementação. Nenhuma
-parte deste SDD implica que a implementação já tenha sido iniciada.
+Em implementação. O MVP funcional cobre integrações configuradas, dashboards
+Lovelace armazenados, recursos, automações e scripts, com referências estruturais
+de entidades, serviços, dispositivos, áreas, eventos e blueprints.
 
 ## Problema
 
@@ -21,6 +22,7 @@ sem tratar uma referência incerta como uma associação confirmada.
 - modelo persistente para usos detectados;
 - detectores para integrações, dashboards, automações e scripts;
 - suporte inicial a recursos Lovelace;
+- evidência de dispositivos, áreas, eventos e blueprints quando disponível no runtime;
 - confiança, evidência, confirmação e estado obsoleto;
 - sincronização e deduplicação de resultados;
 - comandos WebSocket protegidos por administrador;
@@ -29,8 +31,6 @@ sem tratar uma referência incerta como uma associação confirmada.
 
 ### Posterior ao MVP
 
-- cenas;
-- blueprints;
 - temas;
 - Python scripts e templates com associações indiretas;
 - análise de dependências entre automações e scripts;

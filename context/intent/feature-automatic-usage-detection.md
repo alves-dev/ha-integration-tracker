@@ -15,15 +15,15 @@ ou remover um repositório.
 
 ## Acceptance Criteria
 
-- [ ] Usos manuais permanecem intactos durante a detecção.
-- [ ] Usos detectados têm origem, chave estável, confiança, evidência e última
+- [x] Usos manuais permanecem intactos durante a detecção.
+- [x] Usos detectados têm origem, chave estável, confiança, evidência e última
       observação.
-- [ ] O sistema diferencia resultado confirmado, candidato e referência obsoleta.
-- [ ] Dashboards, automações e scripts são cobertos no MVP.
-- [ ] Uma fonte indisponível não apaga nem obsoleta indevidamente seu histórico.
-- [ ] Administradores podem confirmar, ignorar ou converter candidatos em usos
+- [x] O sistema diferencia resultado confirmado, candidato e referência obsoleta.
+- [x] Dashboards, automações e scripts são cobertos no MVP.
+- [x] Uma fonte indisponível não apaga nem obsoleta indevidamente seu histórico.
+- [x] Administradores podem confirmar, ignorar ou converter candidatos em usos
       manuais.
-- [ ] O sistema não modifica dashboards, automações, scripts ou configurações.
+- [x] O sistema não modifica dashboards, automações, scripts ou configurações.
 
 ## Related
 
@@ -38,5 +38,5 @@ ou remover um repositório.
 ## Status
 
 - **Created**: 2026-10-23 (Phase: Intent)
-- **Status**: In progress (MVP slice implemented; dashboards, automations, scripts,
-  and integration detection are available)
+- **Status**: In progress (MVP implemented; device/area/event/blueprint/scene evidence is
+  available when exposed by Home Assistant; themes and deeper indirect analysis remain)

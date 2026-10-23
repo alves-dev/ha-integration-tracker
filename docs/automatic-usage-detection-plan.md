@@ -149,7 +149,8 @@ O MVP deve cobrir, nesta ordem:
 2. Dashboards e recursos Lovelace.
 3. Automações.
 4. Scripts.
-5. Blueprints, cenas e temas.
+5. Blueprints e cenas.
+6. Temas e análise indireta de templates/Python.
 
 O painel deve oferecer uma fila de candidatos com as ações confirmar, ignorar,
 editar, converter para uso manual e abrir o local encontrado.

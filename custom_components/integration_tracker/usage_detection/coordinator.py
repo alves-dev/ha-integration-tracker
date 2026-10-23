@@ -6,9 +6,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components import automation, script
+from homeassistant.components import automation, scene, script
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import area_registry, device_registry, entity_registry
+from homeassistant.helpers.storage import Store
 
 from ..models import TrackedItem
 from .detectors import (
@@ -44,6 +46,7 @@ async def async_detect_all(
         ),
         _component_snapshot(hass, items, automation.DATA_COMPONENT, "automations"),
         _component_snapshot(hass, items, script.DOMAIN, "scripts"),
+        _component_snapshot(hass, items, scene.DATA_COMPONENT, "scenes"),
         await _dashboard_snapshot(hass, items),
     ]
 
@@ -65,7 +68,46 @@ def _component_snapshot(
         )
         for entity in getattr(component, "entities", [])
     ]
-    return DetectionSnapshot(detector, True, detect_component_usages(items, records, detector))
+    return DetectionSnapshot(
+        detector,
+        True,
+        detect_component_usages(
+            items, records, detector, _reference_domains(hass)
+        ),
+    )
+
+
+def _reference_domains(hass: HomeAssistant) -> dict[str, set[str]]:
+    """Map device, area, and entity references to their integration domains."""
+    domains: dict[str, set[str]] = {}
+    config_entries = {
+        entry.entry_id: entry.domain for entry in hass.config_entries.async_entries()
+    }
+    entity_registry_data = entity_registry.async_get(hass)
+    device_registry_data = device_registry.async_get(hass)
+
+    def add(reference: str, domain: str | None) -> None:
+        if domain:
+            domains.setdefault(reference.casefold(), set()).add(domain.casefold())
+
+    for entity in entity_registry_data.entities.values():
+        add(entity.entity_id, config_entries.get(entity.config_entry_id))
+        if entity.device_id:
+            add(entity.device_id, config_entries.get(entity.config_entry_id))
+
+    for device in device_registry_data.devices.values():
+        for entry_id in device.config_entries:
+            add(device.id, config_entries.get(entry_id))
+
+    area_registry_data = area_registry.async_get(hass)
+    for area in area_registry_data.async_list_areas():
+        for device_id in area.device_ids:
+            for domain in domains.get(device_id.casefold(), set()):
+                add(area.id, domain)
+        for entity_id in area.entities:
+            for domain in domains.get(entity_id.casefold(), set()):
+                add(area.id, domain)
+    return domains
 
 
 async def _dashboard_snapshot(
@@ -73,13 +115,14 @@ async def _dashboard_snapshot(
 ) -> DetectionSnapshot:
     """Collect stored/YAML dashboards and Lovelace resources."""
     lovelace = hass.data.get("lovelace")
-    if not isinstance(lovelace, dict) or "dashboards" not in lovelace:
-        return DetectionSnapshot("dashboards", False, [])
-
     records: list[ComponentRecord] = []
-    try:
+    loaded_sources = 0
+    if isinstance(lovelace, dict) and "dashboards" in lovelace:
         for url_path, dashboard in lovelace["dashboards"].items():
-            config = await dashboard.async_load(False)
+            try:
+                config = await dashboard.async_load(False)
+            except (HomeAssistantError, KeyError, TypeError, ValueError):
+                continue
             dashboard_path = url_path or "lovelace"
             records.append(
                 ComponentRecord(
@@ -89,25 +132,98 @@ async def _dashboard_snapshot(
                     config=config,
                 )
             )
+            loaded_sources += 1
 
-        resources = lovelace.get("resources")
-        if resources is not None:
-            if not getattr(resources, "loaded", True):
-                await resources.async_load()
-            for resource in resources.async_items() or []:
-                url = str(resource.get("url") or "")
-                records.append(
-                    ComponentRecord(
-                        identifier=f"resource:{url}",
-                        name=f"Lovelace resource: {url}",
-                        url=url,
-                        config=resource,
+        try:
+            resources = lovelace.get("resources")
+            if resources is not None:
+                if not getattr(resources, "loaded", True):
+                    await resources.async_load()
+                for resource in resources.async_items() or []:
+                    url = str(resource.get("url") or "")
+                    records.append(
+                        ComponentRecord(
+                            identifier=f"resource:{url}",
+                            name=f"Lovelace resource: {url}",
+                            url=url,
+                            config=resource,
+                        )
                     )
-                )
-    except (HomeAssistantError, KeyError, TypeError, ValueError):
-        return DetectionSnapshot("dashboards", False, [])
+                loaded_sources += 1
+        except (HomeAssistantError, KeyError, TypeError, ValueError):
+            pass
 
-    return DetectionSnapshot("dashboards", True, detect_dashboard_usages(items, records))
+    if not records:
+        records, loaded_sources = await _async_load_storage_dashboards(hass)
+
+    return DetectionSnapshot(
+        "dashboards",
+        loaded_sources > 0,
+        detect_dashboard_usages(items, records, _reference_domains(hass)),
+    )
+
+
+async def _async_load_storage_dashboards(
+    hass: HomeAssistant,
+) -> tuple[list[ComponentRecord], int]:
+    """Load storage-mode dashboards when Lovelace is not exposed in hass.data."""
+    records: list[ComponentRecord] = []
+    loaded_sources = 0
+    try:
+        default_data = await Store(hass, 1, "lovelace").async_load()
+        if isinstance(default_data, dict) and isinstance(default_data.get("config"), dict):
+            records.append(
+                ComponentRecord(
+                    identifier="dashboard:lovelace",
+                    name=str(default_data["config"].get("title") or "lovelace"),
+                    url="/lovelace",
+                    config=default_data["config"],
+                )
+            )
+            loaded_sources += 1
+
+        dashboard_data = await Store(hass, 1, "lovelace_dashboards").async_load()
+        dashboard_items = (
+            dashboard_data.get("items", []) if isinstance(dashboard_data, dict) else []
+        )
+        for dashboard in dashboard_items:
+            if not isinstance(dashboard, dict) or dashboard.get("mode") != "storage":
+                continue
+            dashboard_id = dashboard.get("id")
+            if not dashboard_id:
+                continue
+            stored = await Store(hass, 1, f"lovelace.{dashboard_id}").async_load()
+            config = stored.get("config") if isinstance(stored, dict) else None
+            if not isinstance(config, dict):
+                continue
+            url_path = str(dashboard.get("url_path") or dashboard_id)
+            records.append(
+                ComponentRecord(
+                    identifier=f"dashboard:{url_path}",
+                    name=str(dashboard.get("title") or url_path),
+                    url=f"/dashboard/{url_path}",
+                    config=config,
+                )
+            )
+            loaded_sources += 1
+
+        resources = await Store(hass, 1, "lovelace_resources").async_load()
+        for resource in (resources or {}).get("items", []) if isinstance(resources, dict) else []:
+            if not isinstance(resource, dict):
+                continue
+            url = str(resource.get("url") or "")
+            records.append(
+                ComponentRecord(
+                    identifier=f"resource:{url}",
+                    name=f"Lovelace resource: {url}",
+                    url=url,
+                    config=resource,
+                )
+            )
+        loaded_sources += 1
+    except (HomeAssistantError, KeyError, TypeError, ValueError):
+        return [], 0
+    return records, loaded_sources
 
 
 def _entity_url(detector: str, entity_id: str) -> str | None:
