@@ -38,6 +38,7 @@
 - Added separate Marketplace/HACS store display, automatic brand icons, category fallbacks, and theme-aware panel status styling.
 - Added optional, independently synchronized records for configured Home Assistant Core integrations.
 - Improved icon resolution with the installed repository path and Home Assistant's authenticated brand route.
+- Served the panel header icon from the integration's bundled local brand asset instead of the `/api/brands` endpoint.
 
 ## 2026.9.1
 

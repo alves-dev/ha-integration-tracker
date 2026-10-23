@@ -401,7 +401,7 @@ class IntegrationTrackerPanel extends HTMLElement {
     return `
       <header class="page-hero">
         <div class="hero-title">
-          <span class="hero-icon"><img src="/api/brands/integration/integration_tracker/icon.png?placeholder=no" alt="" /></span>
+          <span class="hero-icon"><img src="/integration_tracker_static/brand/icon.png" alt="" /></span>
           <div>
           <h1>Integration Tracker</h1>
           <p>Inventory, context, lifecycle, and review for your community repositories.</p>

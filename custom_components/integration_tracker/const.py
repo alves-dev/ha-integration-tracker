@@ -19,7 +19,7 @@ PANEL_TITLE: Final = "Integration Tracker"
 PANEL_ICON: Final = "mdi:puzzle-check"
 PANEL_COMPONENT: Final = "integration-tracker-panel"
 STATIC_URL: Final = "/integration_tracker_static"
-PANEL_ASSET_VERSION: Final = "20261023-settings"
+PANEL_ASSET_VERSION: Final = "20261023-local-brand"
 
 STORAGE_KEY: Final = DOMAIN
 STORAGE_VERSION: Final = 1
