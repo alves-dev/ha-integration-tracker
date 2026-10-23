@@ -9,8 +9,10 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
 from .const import (
+    CONF_ENABLE_REPAIRS,
     CONF_INCLUDE_CORE,
     CONF_REVIEW_INTERVAL_DAYS,
+    DEFAULT_ENABLE_REPAIRS,
     DEFAULT_INCLUDE_CORE,
     DEFAULT_REVIEW_INTERVAL_DAYS,
     DOMAIN,
@@ -91,7 +93,11 @@ def websocket_list_items(hass, connection, msg) -> None:
                 "sync_error": runtime.sync_error,
                 "review_interval_days": interval,
                 "settings": {
-                    "include_core": include_core
+                    "include_core": include_core,
+                    "enable_repairs": runtime.config_entry.options.get(
+                        CONF_ENABLE_REPAIRS, DEFAULT_ENABLE_REPAIRS
+                    ),
+                    "review_interval_days": interval,
                 },
                 "tags": sorted({tag for item in items for tag in item.tags}, key=str.casefold),
                 "categories": sorted(
@@ -116,6 +122,10 @@ def websocket_list_items(hass, connection, msg) -> None:
     {
         vol.Required("type"): f"{WS_PREFIX}/settings/update",
         vol.Required("include_core"): bool,
+        vol.Required("enable_repairs"): bool,
+        vol.Required("review_interval_days"): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=3650)
+        ),
     }
 )
 @websocket_api.async_response
@@ -125,11 +135,19 @@ async def websocket_update_settings(hass: HomeAssistant, connection, msg) -> Non
         runtime = _runtime(hass)
         options = dict(runtime.config_entry.options)
         options[CONF_INCLUDE_CORE] = msg["include_core"]
+        options[CONF_ENABLE_REPAIRS] = msg["enable_repairs"]
+        options[CONF_REVIEW_INTERVAL_DAYS] = msg["review_interval_days"]
         hass.config_entries.async_update_entry(runtime.config_entry, options=options)
         await runtime.async_sync()
         connection.send_result(
             msg["id"],
-            {"settings": {"include_core": options[CONF_INCLUDE_CORE]}},
+            {
+                "settings": {
+                    "include_core": options[CONF_INCLUDE_CORE],
+                    "enable_repairs": options[CONF_ENABLE_REPAIRS],
+                    "review_interval_days": options[CONF_REVIEW_INTERVAL_DAYS],
+                }
+            },
         )
     except Exception as err:
         _send_domain_error(connection, msg, err)

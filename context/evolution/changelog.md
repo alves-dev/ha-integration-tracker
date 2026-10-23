@@ -39,6 +39,9 @@
 - Added optional, independently synchronized records for configured Home Assistant Core integrations.
 - Improved icon resolution with the installed repository path and Home Assistant's authenticated brand route.
 - Served the panel header icon from the integration's bundled local brand asset instead of the `/api/brands` endpoint.
+- Added configurable review-repair generation and review interval settings in the options flow and panel settings card.
+- Limited repair generation to the same configured Core inventory scope as the panel and moved settings into a compact floating dialog.
+- Placed the settings action beside the synchronization action in the panel header.
 
 ## 2026.9.1
 

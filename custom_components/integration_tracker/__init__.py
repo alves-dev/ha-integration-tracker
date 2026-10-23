@@ -10,8 +10,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
 from .const import (
+    CONF_ENABLE_REPAIRS,
     CONF_INCLUDE_CORE,
     CONF_REVIEW_INTERVAL_DAYS,
+    DEFAULT_ENABLE_REPAIRS,
     DEFAULT_REVIEW_INTERVAL_DAYS,
     DOMAIN,
     INITIAL_SYNC_RETRY_SECONDS,
@@ -67,7 +69,22 @@ class IntegrationTrackerRuntime:
         interval_days = int(
             self.config_entry.options.get(CONF_REVIEW_INTERVAL_DAYS, DEFAULT_REVIEW_INTERVAL_DAYS)
         )
-        async_update_review_issues(self.hass, self.registry.list_items(), interval_days)
+        enabled = self.config_entry.options.get(
+            CONF_ENABLE_REPAIRS, DEFAULT_ENABLE_REPAIRS
+        )
+        include_core = self.config_entry.options.get(CONF_INCLUDE_CORE, False)
+        items = self.registry.list_items()
+        if include_core:
+            items = [
+                item
+                for item in items
+                if item.source.casefold() != "core" or item.installed
+            ]
+        else:
+            items = [item for item in items if item.source.casefold() != "core"]
+        async_update_review_issues(
+            self.hass, items, interval_days, enabled=enabled
+        )
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

@@ -9,6 +9,8 @@ INTEGRATION_VERSION: Final = "2026.10.0"
 
 CONF_REVIEW_INTERVAL_DAYS: Final = "review_interval_days"
 DEFAULT_REVIEW_INTERVAL_DAYS: Final = 90
+CONF_ENABLE_REPAIRS: Final = "enable_repairs"
+DEFAULT_ENABLE_REPAIRS: Final = True
 CONF_INCLUDE_CORE: Final = "include_core"
 DEFAULT_INCLUDE_CORE: Final = False
 MIN_REVIEW_INTERVAL_DAYS: Final = 1
@@ -19,7 +21,7 @@ PANEL_TITLE: Final = "Integration Tracker"
 PANEL_ICON: Final = "mdi:puzzle-check"
 PANEL_COMPONENT: Final = "integration-tracker-panel"
 STATIC_URL: Final = "/integration_tracker_static"
-PANEL_ASSET_VERSION: Final = "20261023-local-brand"
+PANEL_ASSET_VERSION: Final = "20261023-settings-header"
 
 STORAGE_KEY: Final = DOMAIN
 STORAGE_VERSION: Final = 1

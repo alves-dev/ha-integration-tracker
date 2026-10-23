@@ -49,6 +49,7 @@ class IntegrationTrackerPanel extends HTMLElement {
     this._loaded = false;
     this._loading = true;
     this._saving = false;
+    this._settingsOpen = false;
     this._error = "";
     this._data = undefined;
     this._selectedId = undefined;
@@ -204,7 +205,15 @@ class IntegrationTrackerPanel extends HTMLElement {
     const target = event.target;
     const setting = target.dataset?.setting;
     if (setting === "include_core" && event.type === "change") {
-      await this._saveSettings(target.checked);
+      await this._saveSettings({ include_core: target.checked });
+      return;
+    }
+    if (setting === "enable_repairs" && event.type === "change") {
+      await this._saveSettings({ enable_repairs: target.checked });
+      return;
+    }
+    if (setting === "review_interval_days" && event.type === "change") {
+      await this._saveSettings({ review_interval_days: Number(target.value) });
       return;
     }
     const filter = target.dataset?.filter;
@@ -213,15 +222,22 @@ class IntegrationTrackerPanel extends HTMLElement {
     this._renderResults();
   }
 
-  async _saveSettings(includeCore) {
+  async _saveSettings(changes) {
     if (this._saving) return;
+    const current = this._data?.settings || {};
+    const settings = {
+      include_core: current.include_core === true,
+      enable_repairs: current.enable_repairs !== false,
+      review_interval_days: Number(current.review_interval_days || 90),
+      ...changes,
+    };
     this._saving = true;
     this._error = "";
     this.render();
     try {
       await this._hass.callWS({
         type: "integration_tracker/settings/update",
-        include_core: includeCore,
+        ...settings,
       });
       this._announce("Settings saved");
       await this.refresh();
@@ -246,6 +262,13 @@ class IntegrationTrackerPanel extends HTMLElement {
     } else if (action === "close") {
       this._selectedId = undefined;
       this._editingUsageId = undefined;
+      this.render();
+    } else if (action === "open-settings") {
+      this._settingsOpen = true;
+      this.render();
+      queueMicrotask(() => this.shadowRoot.querySelector(".settings-dialog")?.focus());
+    } else if (action === "close-settings") {
+      this._settingsOpen = false;
       this.render();
     } else if (action === "sync") {
       await this._sync(actionTarget);
@@ -391,6 +414,7 @@ class IntegrationTrackerPanel extends HTMLElement {
         ${this._loading ? this._renderLoading() : this._renderContent()}
       </main>
       ${this.selectedItem ? this._renderDialog(this.selectedItem) : ""}
+      ${this._settingsOpen ? this._renderSettingsDialog() : ""}
     `;
   }
 
@@ -409,7 +433,10 @@ class IntegrationTrackerPanel extends HTMLElement {
         </div>
         <div class="sync-block">
           <span>Last synchronized: ${escapeHtml(lastSync)}</span>
-          <button class="primary" data-action="sync" ${this._saving ? "disabled" : ""}>Sync now</button>
+          <div class="sync-actions">
+            <button class="secondary" data-action="open-settings" ${this._saving ? "disabled" : ""}>Open settings</button>
+            <button class="primary" data-action="sync" ${this._saving ? "disabled" : ""}>Sync now</button>
+          </div>
         </div>
       </header>
       ${this._data?.sync_error ? `<div class="message warning">Community-store sync: ${escapeHtml(this._data.sync_error)}</div>` : ""}
@@ -424,15 +451,23 @@ class IntegrationTrackerPanel extends HTMLElement {
     if (!this._data) {
       return `<div class="empty"><h2>Registry unavailable</h2><p>Reload the page to try again.</p></div>`;
     }
-    return `${this._renderSettings()}${this._renderSummary()}${this._renderFilters()}<section id="results">${this._renderResultsHtml()}</section>`;
+    return `${this._renderSummary()}${this._renderFilters()}<section id="results">${this._renderResultsHtml()}</section>`;
   }
 
-  _renderSettings() {
+  _renderSettingsDialog() {
     const includeCore = this._data.settings?.include_core === true;
-    return `<section class="settings-card" aria-labelledby="settings-title">
-      <div class="section-heading"><div><h2 id="settings-title">Settings</h2><p>Choose which sources appear in this panel.</p></div></div>
-      <label class="setting-toggle"><input type="checkbox" data-setting="include_core" ${includeCore ? "checked" : ""} ${this._saving ? "disabled" : ""}><span><strong>Show configured Home Assistant Core integrations</strong><small>Includes only Core integrations with a configured entry. Default: off.</small></span></label>
-    </section>`;
+    const enableRepairs = this._data.settings?.enable_repairs !== false;
+    const reviewInterval = this._data.settings?.review_interval_days || 90;
+    return `<div class="overlay" data-action="close-settings">
+      <section class="dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" tabindex="-1" data-action="settings-dialog">
+        <div class="dialog-head"><div><h2 id="settings-dialog-title">Settings</h2><small>Configure panel visibility and review alerts.</small></div><button class="icon-button" data-action="close-settings" aria-label="Close settings">×</button></div>
+        <div class="dialog-body settings-body">
+          <label class="setting-toggle"><input type="checkbox" data-setting="include_core" ${includeCore ? "checked" : ""} ${this._saving ? "disabled" : ""}><span><strong>Show configured Home Assistant Core integrations</strong><small>Includes only Core integrations with a configured entry. Default: off.</small></span></label>
+          <label class="setting-toggle"><input type="checkbox" data-setting="enable_repairs" ${enableRepairs ? "checked" : ""} ${this._saving ? "disabled" : ""}><span><strong>Generate review repairs</strong><small>Creates Home Assistant repair notices for items that need review. Default: on.</small></span></label>
+          <label class="setting-field"><span><strong>Review interval (days)</strong><small>Days until a reviewed item needs attention again.</small></span><input data-setting="review_interval_days" type="number" min="1" max="3650" value="${reviewInterval}" ${this._saving ? "disabled" : ""}></label>
+        </div>
+      </section>
+    </div>`;
   }
 
   _renderSummary() {
@@ -613,10 +648,10 @@ class IntegrationTrackerPanel extends HTMLElement {
       button,.button,input,select,textarea { font:inherit; } button,.button { min-height:40px; border-radius:var(--ha-card-border-radius, 10px); padding:8px 14px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--divider-color); color:var(--primary-text-color); background:var(--card-background-color); }
       button:focus-visible,.button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,tr:focus-visible { outline:3px solid var(--primary-color); outline-offset:2px; }
       button:disabled { opacity:.55; cursor:wait; } button.primary { color:var(--text-primary-color); background:var(--primary-color); border-color:var(--primary-color); font-weight:600; } .secondary { background:var(--secondary-background-color); } .text-button { min-height:34px; padding:4px 8px; border-color:transparent; background:transparent; color:var(--primary-color); } .danger { color:var(--error-color); }
-      .sync-block { display:flex; flex-direction:column; align-items:flex-end; gap:8px; color:var(--secondary-text-color); font-size:.9rem; }
+      .sync-block { display:flex; flex-direction:column; align-items:flex-end; gap:8px; color:var(--secondary-text-color); font-size:.9rem; } .sync-actions { display:flex; align-items:center; gap:8px; }
       .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:20px; }
       .summary article,.filters,.table-wrap,.metadata,.editor,.usages,.reviews { background:var(--card-background-color); border:1px solid var(--divider-color); border-radius:var(--ha-card-border-radius, 12px); box-shadow:var(--ha-card-box-shadow, none); }
-      .settings-card { background:var(--card-background-color); border:1px solid var(--divider-color); border-radius:var(--ha-card-border-radius, 12px); box-shadow:var(--ha-card-box-shadow, none); padding:16px; margin-bottom:20px; } .settings-card h2 { margin-bottom:4px; } .settings-card p { color:var(--secondary-text-color); margin-bottom:0; } .setting-toggle { display:flex; flex-direction:row; align-items:flex-start; gap:12px; margin-top:16px; cursor:pointer; } .setting-toggle input { width:20px; height:20px; margin:2px 0 0; accent-color:var(--primary-color); } .setting-toggle strong,.setting-toggle small { display:block; } .setting-toggle small { color:var(--secondary-text-color); margin-top:4px; }
+      .setting-toggle,.setting-field { display:flex; flex-direction:row; align-items:flex-start; gap:12px; margin-top:16px; cursor:pointer; } .setting-toggle input { width:20px; height:20px; margin:2px 0 0; accent-color:var(--primary-color); } .setting-toggle strong,.setting-toggle small,.setting-field strong,.setting-field small { display:block; } .setting-toggle small,.setting-field small { color:var(--secondary-text-color); margin-top:4px; } .setting-field { align-items:center; cursor:default; } .setting-field > span { flex:1; } .setting-field input { max-width:120px; } .settings-body { gap:4px; }
       .summary article { position:relative; overflow:hidden; padding:16px; display:flex; flex-direction:column; gap:4px; } .summary article::before { content:""; position:absolute; inset:0 auto 0 0; width:4px; background:var(--primary-color); } .summary strong { font-size:1.65rem; color:var(--primary-color); } .summary span { color:var(--secondary-text-color); } .summary .tone-success::before { background:var(--success-color); } .summary .tone-success strong { color:var(--success-color); } .summary .tone-info::before { background:var(--info-color, var(--primary-color)); } .summary .tone-info strong { color:var(--info-color, var(--primary-color)); } .summary .tone-warning::before { background:var(--warning-color); } .summary .tone-warning strong { color:var(--warning-color); } .summary .tone-muted::before { background:var(--disabled-text-color); } .summary .tone-neutral::before { background:var(--secondary-text-color); }
       .filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:12px; padding:16px; margin-bottom:18px; } .filters .search { grid-column:span 2; }
       label { display:flex; flex-direction:column; gap:6px; font-size:.9rem; } label>span,legend { font-weight:600; } label small { color:var(--secondary-text-color); font-weight:400; }

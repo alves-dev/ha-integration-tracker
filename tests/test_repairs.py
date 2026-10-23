@@ -59,3 +59,19 @@ def test_removes_repairs_when_no_item_matches():
         _issue_id("never_reviewed", item.id),
         _issue_id("needs_review", "hacs:owner/old"),
     }
+
+
+def test_removes_repairs_when_disabled():
+    """Remove existing review issues when repair generation is disabled."""
+    item = tracked_item("owner/example", "Example")
+
+    with patch("custom_components.integration_tracker.repairs.issue_registry") as registry:
+        registry.async_get.return_value.issues = {
+            ("integration_tracker", _issue_id("never_reviewed", item.id)): Mock(),
+        }
+        async_update_review_issues(Mock(), [item], 90, enabled=False)
+
+    assert registry.async_create_issue.call_count == 0
+    assert registry.async_delete_issue.call_args_list[0].args[2] == _issue_id(
+        "never_reviewed", item.id
+    )

@@ -15,6 +15,7 @@ Users need one clear place to understand and maintain their custom repository in
 - [ ] The panel displays inventory summaries, filtering, sorting, and item details.
 - [ ] The panel identifies the active installation store, displays available integration icons, and remains legible through theme-aware status colors.
 - [ ] The panel header uses the integration's bundled local brand asset without depending on Home Assistant's `/api/brands` endpoint.
+- [ ] Panel settings open in a compact floating dialog and expose inventory and review preferences without occupying the main content area.
 - [ ] Users can perform supported updates and receive useful error feedback.
 - [ ] The panel remains usable with empty data, synchronization failures, and different themes.
 

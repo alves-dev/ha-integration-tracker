@@ -18,7 +18,7 @@ Alternatives are not documented in the existing codebase. No REST API, frontend 
 
 ## Outcomes
 
-The API currently supports listing, retrieving, updating, usage CRUD, marking reviewed, and manual synchronization. Review state also drives one persistent Home Assistant repair issue per affected item: never reviewed or review interval expired. They are recalculated when the integration loads, synchronizes, or records a review, and are removed when the item no longer matches. Usage links are opened in a separate browser tab. Local documentation calls out administrator, failure, theme, and responsive-panel checks.
+The API currently supports listing, retrieving, updating, usage CRUD, marking reviewed, settings, and manual synchronization. Review state can drive one persistent Home Assistant repair issue per affected item: never reviewed or review interval expired. The repair projection is configurable and is recalculated when the integration loads, synchronizes, records a review, or changes settings; disabling it removes existing issues. Usage links are opened in a separate browser tab. Local documentation calls out administrator, failure, theme, and responsive-panel checks.
 
 ## Related
 

@@ -10,8 +10,10 @@ from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv
 
 from .const import (
+    CONF_ENABLE_REPAIRS,
     CONF_INCLUDE_CORE,
     CONF_REVIEW_INTERVAL_DAYS,
+    DEFAULT_ENABLE_REPAIRS,
     DEFAULT_INCLUDE_CORE,
     DEFAULT_REVIEW_INTERVAL_DAYS,
     DOMAIN,
@@ -41,7 +43,7 @@ class IntegrationTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class IntegrationTrackerOptionsFlow(config_entries.OptionsFlow):
-    """Configure the review interval and inventory sources."""
+    """Configure review repairs and inventory sources."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         """Manage Integration Tracker options."""
@@ -51,11 +53,15 @@ class IntegrationTrackerOptionsFlow(config_entries.OptionsFlow):
         current = self.config_entry.options.get(
             CONF_REVIEW_INTERVAL_DAYS, DEFAULT_REVIEW_INTERVAL_DAYS
         )
+        enable_repairs = self.config_entry.options.get(
+            CONF_ENABLE_REPAIRS, DEFAULT_ENABLE_REPAIRS
+        )
         include_core = self.config_entry.options.get(
             CONF_INCLUDE_CORE, DEFAULT_INCLUDE_CORE
         )
         schema = vol.Schema(
             {
+                vol.Required(CONF_ENABLE_REPAIRS, default=enable_repairs): cv.boolean,
                 vol.Required(CONF_REVIEW_INTERVAL_DAYS, default=current): vol.All(
                     vol.Coerce(int),
                     vol.Range(
