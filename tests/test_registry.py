@@ -178,6 +178,49 @@ async def test_detected_usage_reconciliation_is_idempotent_and_preserves_manual_
 
 
 @pytest.mark.asyncio
+async def test_dashboard_detection_migrates_legacy_url_to_view_url():
+    storage = MemoryStorage()
+    registry = IntegrationRegistry(storage)
+    await registry.async_load()
+    await registry.async_sync(FakeProvider([provider_item()]))
+    item_id = "hacs:owner/example"
+    legacy = DetectedUsage(
+        item_id=item_id,
+        name="Infra",
+        type="dashboard",
+        detection_key="dashboards:dashboard:dashboard-infra:card:button-card",
+        detector="dashboards",
+        confidence="high",
+        url="/dashboard/dashboard-infra",
+        evidence={
+            "reference": "button-card",
+            "record_id": "dashboard:dashboard-infra",
+        },
+    )
+    current = DetectedUsage(
+        item_id=item_id,
+        name="Infra — Infra",
+        type="dashboard",
+        detection_key="dashboards:dashboard:dashboard-infra:view:infra:card:button-card",
+        detector="dashboards",
+        confidence="high",
+        url="/dashboard-infra/infra",
+        evidence={
+            "reference": "button-card",
+            "record_id": "dashboard:dashboard-infra:view:infra",
+        },
+    )
+
+    await registry.async_reconcile_detected_usages("dashboards", [legacy])
+    usage = registry.get_item(item_id).usages[0]
+    await registry.async_reconcile_detected_usages("dashboards", [current])
+
+    assert len(registry.get_item(item_id).usages) == 1
+    assert usage.url == "/dashboard-infra/infra"
+    assert usage.detection_key == current.detection_key
+
+
+@pytest.mark.asyncio
 async def test_detected_usage_is_marked_stale_only_for_successful_detector_snapshot():
     storage = MemoryStorage()
     registry = IntegrationRegistry(storage)

@@ -48,6 +48,8 @@
 - Fixed area reference resolution for Home Assistant versions where `AreaEntry`
   does not expose device or entity collections.
 - Fixed detected Lovelace usage links to use the dashboard `url_path` and view path.
+- Added migration of previously stored dashboard detections so old `/dashboard/...`
+  links are updated instead of remaining as stale candidates.
 
 ## 2026.10.0
 

@@ -196,8 +196,15 @@ class IntegrationRegistry:
                     for usage in item.usages
                     if usage.source == "detected" and usage.detector == detector
                 }
+                migrated: set[str] = set()
                 for key, detection in current.items():
                     usage = existing.get(key)
+                    if usage is None:
+                        usage = _find_legacy_dashboard_usage(
+                            existing.values(), detection, migrated
+                        )
+                        if usage is not None:
+                            migrated.add(usage.id)
                     if usage is None:
                         item.usages.append(
                             Usage.from_detection(
@@ -216,6 +223,7 @@ class IntegrationRegistry:
                     usage.name = detection.name
                     usage.type = detection.type
                     usage.url = detection.url
+                    usage.detection_key = detection.detection_key
                     usage.confidence = detection.confidence
                     usage.evidence = dict(detection.evidence)
                     usage.last_seen_at = now
@@ -294,6 +302,32 @@ class IntegrationRegistry:
                 "metadata": self._metadata,
             }
         )
+
+
+def _find_legacy_dashboard_usage(
+    usages, detection: DetectedUsage, migrated: set[str]
+) -> Usage | None:
+    """Reuse pre-view-splitting dashboard detections after their URL changes."""
+    if detection.detector != "dashboards":
+        return None
+    record_id = str(detection.evidence.get("record_id") or "")
+    dashboard_id = record_id.split(":view:", 1)[0]
+    reference = detection.evidence.get("reference")
+    if not dashboard_id or not reference:
+        return None
+    for usage in usages:
+        if usage.id in migrated or usage.stale:
+            continue
+        old_record_id = str(usage.evidence.get("record_id") or "")
+        old_key = str(usage.detection_key or "")
+        if (
+            usage.type == detection.type
+            and usage.evidence.get("reference") == reference
+            and old_record_id == dashboard_id
+            and old_key.startswith(f"dashboards:{dashboard_id}:")
+        ):
+            return usage
+    return None
 
 
 def _normalize_tags(tags: Any) -> list[str]:
