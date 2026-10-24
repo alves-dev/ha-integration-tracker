@@ -87,12 +87,11 @@ Pesquisar referências em triggers, conditions e actions, incluindo:
 - dispositivos;
 - eventos;
 - chamadas de serviço;
-- scripts chamados por uma automação;
 - automações criadas pela UI e automações em YAML.
 
 ### Scripts
 
-Pesquisar entidades, dispositivos, serviços, scripts encadeados e sequências em
+Pesquisar entidades, dispositivos, serviços e sequências em
 scripts criados pela UI ou definidos em YAML.
 
 ### Cenas

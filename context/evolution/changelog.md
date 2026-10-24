@@ -61,6 +61,8 @@
   snapshots, and usage source/state/confidence filters.
 - Fixed dashboard theme references such as `Catppuccin Mocha` by matching theme
   names against repository owner and name tokens.
+- Removed automation-to-script dependency analysis from the Integration Tracker
+  plan because it is covered by another integration in the user's environment.
 
 ## 2026.10.0
 

@@ -33,7 +33,6 @@ sem tratar uma referência incerta como uma associação confirmada.
 ### Posterior ao MVP
 
 - Python scripts e templates com associações indiretas;
-- análise de dependências entre automações e scripts;
 - relatórios ou sensores de usos obsoletos.
 
 ## Modelo de dados proposto
@@ -135,12 +134,11 @@ resultado deve guardar dashboard, view e referência quando possível.
 ### Automações
 
 Ler automações da UI e YAML, examinando triggers, conditions e actions. Detectar
-entidades, dispositivos, eventos, serviços e scripts chamados.
+entidades, dispositivos, eventos e serviços.
 
 ### Scripts
 
-Ler scripts da UI e YAML, examinando sequências, serviços, entidades, dispositivos
-e scripts encadeados.
+Ler scripts da UI e YAML, examinando sequências, serviços, entidades e dispositivos.
 
 ## Reconciliação
 
@@ -249,7 +247,6 @@ deve criar um agendador independente sem necessidade comprovada.
 - [x] Implementar leitura dos scripts YAML.
 - [x] Extrair entidades e serviços.
 - [x] Extrair dispositivos, áreas e eventos.
-- [ ] Detectar chamadas entre automações e scripts como dependências próprias.
 - [x] Criar testes para estruturas aninhadas e ações múltiplas.
 
 ### Fase 5 — Coordinator e ciclo de sincronização

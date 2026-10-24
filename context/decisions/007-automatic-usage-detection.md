@@ -37,7 +37,8 @@ The MVP is implemented with detector-scoped snapshots for integrations, dashboar
 automations, scripts, scenes, installed blueprints, and frontend-exposed themes.
 Partial detector failures remain non-destructive, and the panel exposes manual
 refresh plus source/state/confidence filters. Deeper template/Python analysis and
-automation-to-script dependency graphs remain outside the MVP. The detailed
+automation-to-script dependency analysis are explicitly out of scope because that
+responsibility is provided by another installed integration. The detailed
 implementation tasks and acceptance criteria are recorded in the [automatic usage
 detection SDD](../../docs/automatic-usage-detection-sdd.md).
 
