@@ -32,6 +32,10 @@
 
 ## 2026.10.24
 
+- Aligned the development-release cleanup workflow with the shared retention
+  schedule and default of eight prereleases.
+- Updated the project intent to reflect version `2026.10.1` and automatic usage
+  detection.
 - Fixed development prerelease cleanup to pass the GitHub repository explicitly,
   allowing the workflow to run without checking out the repository.
 
