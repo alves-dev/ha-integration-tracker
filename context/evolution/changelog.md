@@ -54,6 +54,8 @@
   `/config/automation/edit/1780921324759`.
 - Added per-item usage refresh, partial detector error reporting, blueprint/theme
   snapshots, and usage source/state/confidence filters.
+- Fixed dashboard theme references such as `Catppuccin Mocha` by matching theme
+  names against repository owner and name tokens.
 
 ## 2026.10.0
 

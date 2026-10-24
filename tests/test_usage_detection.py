@@ -79,6 +79,41 @@ def test_iter_config_references_extracts_devices_areas_events_and_blueprints():
     }
 
 
+def test_iter_config_references_extracts_dashboard_theme():
+    references = list(iter_config_references({"theme": "Catppuccin Mocha"}))
+
+    assert [(reference.kind, reference.value) for reference in references] == [
+        ("theme", "Catppuccin Mocha")
+    ]
+
+
+def test_dashboard_detector_matches_catppuccin_theme_name():
+    item = TrackedItem.from_provider(
+        ProviderItem(
+            source="hacs",
+            repository="catppuccin/home-assistant",
+            name="Catppuccin Theme",
+            category="theme",
+        ),
+        "2026-10-24T00:00:00Z",
+    )
+    detections = detect_dashboard_usages(
+        [item],
+        [
+            ComponentRecord(
+                "dashboard:infra:view:infra",
+                "Infra — Server",
+                "/dashboard-infra/infra",
+                {"view": {"cards": [{"type": "gauge", "theme": "Catppuccin Mocha"}]}},
+            )
+        ],
+    )
+
+    assert len(detections) == 1
+    assert detections[0].confidence == "high"
+    assert detections[0].evidence["reference_type"] == "theme"
+
+
 def test_component_detector_matches_registry_resolved_device_reference():
     item = tracked_item()
     detections = detect_component_usages(

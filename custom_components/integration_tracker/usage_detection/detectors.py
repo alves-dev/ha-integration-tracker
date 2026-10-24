@@ -49,6 +49,8 @@ def iter_config_references(value: Any, path: str = "config") -> Iterator[ConfigR
                     yield ConfigReference("area", child, child_path)
                 elif key_text in {"event", "event_type"}:
                     yield ConfigReference("event", child, child_path)
+                elif key_text == "theme":
+                    yield ConfigReference("theme", child, child_path)
                 elif key_text == "use_blueprint":
                     yield ConfigReference("blueprint", child, child_path)
                 elif _ENTITY_ID.match(child):
@@ -177,6 +179,8 @@ def match_reference(
         return "high"
     if reference.kind == "resource" and any(token in value for token in tokens):
         return "high"
+    if reference.kind == "theme" and any(token in value for token in tokens):
+        return "high"
     if any(token in value for token in tokens):
         return "medium"
     return None
@@ -190,11 +194,13 @@ def _item_domain(item: TrackedItem) -> str | None:
 
 def _item_tokens(item: TrackedItem) -> set[str]:
     """Build conservative matching tokens from provider-owned metadata."""
-    repository = item.repository.rsplit("/", 1)[-1].casefold()
-    tokens = {repository}
+    repository_parts = [part.casefold() for part in item.repository.split("/")]
+    tokens = set(repository_parts)
     for value in (item.provider_data.get("hacs_id"), item.name):
         if value:
-            tokens.add(str(value).casefold().replace(" ", "-"))
+            normalized = str(value).casefold()
+            tokens.add(normalized.replace(" ", "-"))
+            tokens.update(part for part in re.split(r"[^a-z0-9]+", normalized) if part)
     return {token for token in tokens if len(token) >= 3}
 
 
