@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -63,7 +63,11 @@ def _component_snapshot(
         ComponentRecord(
             identifier=str(getattr(entity, "entity_id", "unknown")),
             name=str(getattr(entity, "name", None) or getattr(entity, "entity_id", detector)),
-            url=_entity_url(detector, getattr(entity, "entity_id", "")),
+            url=_entity_url(
+                detector,
+                getattr(entity, "entity_id", ""),
+                getattr(entity, "raw_config", None),
+            ),
             config=getattr(entity, "raw_config", None),
         )
         for entity in getattr(component, "entities", [])
@@ -255,8 +259,10 @@ async def _async_load_storage_dashboards(
     return records, loaded_sources
 
 
-def _entity_url(detector: str, entity_id: str) -> str | None:
+def _entity_url(detector: str, entity_id: str, config: Any = None) -> str | None:
     """Build a useful Home Assistant configuration URL for a component entity."""
+    if detector == "automations" and isinstance(config, Mapping) and config.get("id"):
+        return f"/config/automation/edit/{config['id']}"
     object_id = entity_id.split(".", 1)[-1] if "." in entity_id else entity_id
     if detector == "automations":
         return f"/config/automation/edit/{object_id}"

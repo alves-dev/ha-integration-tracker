@@ -100,6 +100,20 @@ def test_component_detector_matches_registry_resolved_device_reference():
     assert detections[0].evidence["reference_type"] == "device"
 
 
+def test_automation_url_uses_persistent_automation_id():
+    assert coordinator._entity_url(
+        "automations",
+        "automation.notification_ai_usage_limit_reached",
+        {"id": "1780921324759"},
+    ) == "/config/automation/edit/1780921324759"
+
+
+def test_automation_url_falls_back_to_entity_object_id():
+    assert coordinator._entity_url(
+        "automations", "automation.example", {"alias": "Example"}
+    ) == "/config/automation/edit/example"
+
+
 def test_reference_domains_resolves_area_without_area_entry_collections(monkeypatch):
     config_entry = SimpleNamespace(entry_id="entry-1", domain="example")
     entity = SimpleNamespace(

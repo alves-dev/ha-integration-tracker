@@ -50,6 +50,8 @@
 - Fixed detected Lovelace usage links to use the dashboard `url_path` and view path.
 - Added migration of previously stored dashboard detections so old `/dashboard/...`
   links are updated instead of remaining as stale candidates.
+- Fixed automation usage links to use the automation configuration ID, such as
+  `/config/automation/edit/1780921324759`.
 
 ## 2026.10.0
 
