@@ -32,6 +32,12 @@
 
 ## 2026.10.24
 
+- Added runtime, configuration-flow, panel, WebSocket, and detector orchestration
+  tests, raising Python coverage to 80%.
+- Refactored detector and registry orchestration helpers to reduce SonarQube
+  cognitive complexity without changing ownership or snapshot semantics.
+- Enabled `sonar.qualitygate.wait` and synchronized package metadata with version
+  `2026.10.1`.
 - Aligned the development-release cleanup workflow with the shared retention
   schedule and default of eight prereleases.
 - Updated the project intent to reflect version `2026.10.1` and automatic usage

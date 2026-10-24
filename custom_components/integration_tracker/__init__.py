@@ -116,7 +116,7 @@ class IntegrationTrackerRuntime:
         )
 
 
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
     """Set up the integration namespace."""
     hass.data.setdefault(DOMAIN, {})
     return True
