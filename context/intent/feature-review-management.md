@@ -14,7 +14,7 @@ Regular review helps users detect stale, unused, or replaceable repositories and
 - [ ] Each review is retained in the repository’s history.
 - [ ] The tracker identifies never-reviewed and overdue repositories.
 - [ ] Home Assistant surfaces repairs for never-reviewed and overdue repositories.
-- [ ] Users can configure the review interval.
+- [ ] Users can enable or disable review repairs and configure the review interval.
 - [ ] Review state does not overwrite the repository’s lifecycle status.
 
 ## Related

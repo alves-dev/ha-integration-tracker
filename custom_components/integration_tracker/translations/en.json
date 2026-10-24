@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Set up Integration Tracker",
-        "description": "Create a persistent registry for repositories installed through HACS."
+        "description": "Create a persistent registry for repositories installed through HACS or Marketplace."
       }
     },
     "abort": {
@@ -17,7 +17,9 @@
         "title": "Review settings",
         "description": "Choose how often tracked items should be reviewed.",
         "data": {
-          "review_interval_days": "Review interval (days)"
+          "enable_repairs": "Generate review repairs",
+          "review_interval_days": "Review interval (days)",
+          "include_core": "Include configured Home Assistant Core integrations"
         }
       }
     }

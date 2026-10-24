@@ -10,17 +10,21 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
 from .const import (
+    CONF_ENABLE_REPAIRS,
+    CONF_INCLUDE_CORE,
     CONF_REVIEW_INTERVAL_DAYS,
+    DEFAULT_ENABLE_REPAIRS,
     DEFAULT_REVIEW_INTERVAL_DAYS,
     DOMAIN,
     INITIAL_SYNC_RETRY_SECONDS,
     SYNC_INTERVAL,
 )
 from .panel import async_register_panel, async_unregister_panel
-from .providers import HacsProvider
+from .providers import CommunityStoreProvider, CoreProvider
 from .registry import IntegrationRegistry
 from .repairs import async_update_review_issues
 from .storage import RegistryStorage
+from .usage_detection.coordinator import async_detect_all
 from .websocket import async_register_websocket_commands
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,26 +37,83 @@ class IntegrationTrackerRuntime:
     hass: HomeAssistant
     config_entry: ConfigEntry
     registry: IntegrationRegistry
-    provider: HacsProvider
+    provider: CommunityStoreProvider
+    core_provider: CoreProvider
     sync_error: str | None = None
+    usage_detection_error: str | None = None
 
     async def async_sync(self) -> dict[str, int]:
         """Synchronize and retain the latest error for the panel."""
-        try:
-            result = await self.registry.async_sync(self.provider)
-        except Exception as err:
-            self.sync_error = str(err)
-            raise
-        self.sync_error = None
+        totals = {"created": 0, "updated": 0, "uninstalled": 0}
+        errors: list[str] = []
+        providers = (
+            (self.provider, self.core_provider)
+            if self.config_entry.options.get(CONF_INCLUDE_CORE, False)
+            else (self.provider,)
+        )
+        for provider in providers:
+            try:
+                result = await self.registry.async_sync(provider)
+            except Exception as err:
+                errors.append(str(err))
+                continue
+            for key, value in result.items():
+                totals[key] += value
+
+        self.sync_error = "; ".join(errors) if errors else None
+        if not errors:
+            await self.async_detect_usages()
         self.async_update_repairs()
-        return result
+        if errors:
+            raise RuntimeError(self.sync_error)
+        return totals
+
+    async def async_detect_usages(self) -> dict[str, int]:
+        """Discover and reconcile usages from available Home Assistant sources."""
+        counts = {"created": 0, "updated": 0, "stale": 0}
+        try:
+            snapshots = await async_detect_all(self.hass, self.registry.list_items())
+            errors = [
+                f"{snapshot.detector}: {snapshot.error}"
+                for snapshot in snapshots
+                if snapshot.error
+            ]
+            for snapshot in snapshots:
+                if not snapshot.available:
+                    continue
+                result = await self.registry.async_reconcile_detected_usages(
+                    snapshot.detector, snapshot.detections
+                )
+                for key, value in result.items():
+                    counts[key] += value
+            self.usage_detection_error = "; ".join(errors) if errors else None
+        except Exception as err:
+            self.usage_detection_error = str(err)
+            _LOGGER.warning("Automatic usage detection failed: %s", err)
+            raise
+        return counts
 
     def async_update_repairs(self) -> None:
         """Update Home Assistant repair issues for current review state."""
         interval_days = int(
             self.config_entry.options.get(CONF_REVIEW_INTERVAL_DAYS, DEFAULT_REVIEW_INTERVAL_DAYS)
         )
-        async_update_review_issues(self.hass, self.registry.list_items(), interval_days)
+        enabled = self.config_entry.options.get(
+            CONF_ENABLE_REPAIRS, DEFAULT_ENABLE_REPAIRS
+        )
+        include_core = self.config_entry.options.get(CONF_INCLUDE_CORE, False)
+        items = self.registry.list_items()
+        if include_core:
+            items = [
+                item
+                for item in items
+                if item.source.casefold() != "core" or item.installed
+            ]
+        else:
+            items = [item for item in items if item.source.casefold() != "core"]
+        async_update_review_issues(
+            self.hass, items, interval_days, enabled=enabled
+        )
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -65,7 +126,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Integration Tracker from a config entry."""
     registry = IntegrationRegistry(RegistryStorage(hass))
     await registry.async_load()
-    runtime = IntegrationTrackerRuntime(hass, entry, registry, HacsProvider(hass))
+    runtime = IntegrationTrackerRuntime(
+        hass, entry, registry, CommunityStoreProvider(hass), CoreProvider(hass)
+    )
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime
 
     async_register_websocket_commands(hass)
@@ -76,7 +139,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             await runtime.async_sync()
         except Exception as err:
-            _LOGGER.warning("HACS synchronization skipped: %s", err)
+            _LOGGER.warning("Community-store synchronization skipped: %s", err)
 
     await _run_sync()
 

@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Configurar o Integration Tracker",
-        "description": "Crie um registro persistente dos repositórios instalados pelo HACS."
+        "description": "Crie um registro persistente dos repositórios instalados pelo HACS ou Marketplace."
       }
     },
     "abort": {
@@ -15,9 +15,11 @@
     "step": {
       "init": {
         "title": "Configurações de revisão",
-        "description": "Escolha com que frequência os itens rastreados devem ser revisados.",
+        "description": "Escolha se os avisos de revisão serão gerados, o intervalo e se as integrações Core configuradas devem aparecer.",
         "data": {
-          "review_interval_days": "Intervalo de revisão (dias)"
+          "enable_repairs": "Gerar avisos de revisão",
+          "review_interval_days": "Intervalo de revisão (dias)",
+          "include_core": "Exibir integrações Core configuradas do Home Assistant"
         }
       }
     }

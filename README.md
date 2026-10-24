@@ -2,19 +2,21 @@
 
 [![Quality Gate](https://sonar.alves-dev.com/api/project_badges/measure?project=ha-integration-tracker&metric=alert_status)](https://sonar.alves-dev.com/dashboard?id=ha-integration-tracker)
 [![Coverage](https://sonar.alves-dev.com/api/project_badges/measure?project=ha-integration-tracker&metric=coverage)](https://sonar.alves-dev.com/dashboard?id=ha-integration-tracker)
-![Version](https://img.shields.io/badge/Version-2026.9.1-41BDF5?style=flat-square)
+![Version](https://img.shields.io/badge/Version-2026.10.1-41BDF5?style=flat-square)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.1%2B-41BDF5?logo=homeassistant)
 
-Integration Tracker is a Home Assistant custom integration for understanding and maintaining the repositories installed through HACS. It keeps the context HACS does not own: why a repository is installed, where it is used, how useful it has been, and when it should be reviewed again.
+Integration Tracker is a Home Assistant custom integration for understanding and maintaining repositories installed through HACS or the Home Assistant Marketplace. It keeps the context the community store does not own: why a repository is installed, where it is used, how useful it has been, and when it should be reviewed again.
 
-HACS remains responsible for installation and updates. Integration Tracker maintains a separate historical registry, so notes and review history remain available after an uninstall and return when the same repository is installed again.
+HACS or Marketplace remains responsible for installation and updates. Integration Tracker maintains a separate historical registry, so notes and review history remain available after an uninstall and return when the same repository is installed again.
 
 ## Features
 
-- Discovers installed HACS integrations, plugins, themes, scripts, and other repository categories.
+- Discovers loaded Home Assistant Core integrations plus Marketplace or HACS integrations, plugins, themes, scripts, and other repository categories.
 - Keeps a persistent record of installed and uninstalled repositories.
 - Provides ratings from one to three stars, lifecycle statuses, multiline notes, and reusable tags.
 - Tracks manual usages with optional Home Assistant or external links.
+- Detects likely usage in integrations, dashboards, automations, scripts, scenes, blueprints,
+  themes, and Lovelace resources when Home Assistant exposes the source.
 - Records every review and highlights items that are overdue or have never been reviewed.
 - Searches names, repositories, notes, tags, and usage names.
 - Filters by installation, status, rating, review state, source, category, and tags.
@@ -24,14 +26,14 @@ HACS remains responsible for installation and updates. Integration Tracker maint
 ## Requirements
 
 - Home Assistant 2025.1.0 or newer.
-- HACS installed and configured for repository discovery.
+- HACS installed and configured for repository discovery on older Home Assistant versions, or Marketplace enabled on Home Assistant 2026.11 and newer.
 - An administrator account to use the panel and its API.
 
-If HACS is temporarily unavailable, Integration Tracker preserves the registry and reports the synchronization error. Repositories are marked as uninstalled only after HACS returns a successful complete snapshot.
+If HACS or Marketplace is temporarily unavailable, Integration Tracker preserves the registry and reports the synchronization error. Repositories are marked as uninstalled only after the active store returns a successful complete snapshot.
 
 ## HACS availability
 
-Integration Tracker is available as a HACS custom repository and is not currently listed in the default HACS catalog. Add `https://github.com/alves-dev/ha-integration-tracker` as an `Integration` repository.
+Integration Tracker is available as a HACS custom repository and is not currently listed in the default catalog. On Home Assistant 2026.11 and newer, install it from Marketplace. On older versions, add `https://github.com/alves-dev/ha-integration-tracker` to HACS as an `Integration` repository.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=alves-dev&repository=ha-integration-tracker&category=integration)
 
@@ -39,7 +41,7 @@ Integration Tracker is available as a HACS custom repository and is not currentl
 
 ### HACS custom repository
 
-1. Open HACS in Home Assistant.
+1. Open HACS in Home Assistant, or Marketplace on Home Assistant 2026.11 and newer.
 2. Open the custom repositories dialog.
 3. Add `https://github.com/alves-dev/ha-integration-tracker` with category **Integration**.
 4. Find **Integration Tracker**, install it, and restart Home Assistant.
@@ -54,9 +56,14 @@ Integration Tracker is available as a HACS custom repository and is not currentl
 
 ## Normal operation
 
-Open **Integration Tracker** from the sidebar. The integration synchronizes at setup, retries after HACS startup when necessary, and refreshes every six hours. Use **Sync now** after installing or removing repositories when you want the panel updated immediately.
+Open **Integration Tracker** from the sidebar. The integration synchronizes at setup, retries after Marketplace startup when necessary, and refreshes every six hours. By default it lists only community-store repositories; use the Integration Tracker options to include configured Home Assistant Core integrations. Use **Sync now** after installing or removing repositories when you want the panel updated immediately.
 
-Select a row to edit tracking data, manage known usages, open the repository, or mark the item as reviewed. Set the global review interval from the integration's **Configure** action in **Settings → Devices & services**. The default is 90 days.
+Select a row to edit tracking data, manage known usages, inspect detected usage
+candidates, open the repository, or mark the item as reviewed. Detected candidates
+can be confirmed, ignored, or converted into manual usages. Use **Refresh usages**
+for one item or filter the registry by usage source, state, and confidence. Set the global review
+interval from the integration's **Configure** action in **Settings → Devices &
+services**. The default is 90 days.
 
 Only administrator users can see the panel or call its WebSocket operations.
 

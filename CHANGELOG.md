@@ -2,6 +2,30 @@
 
 All user-relevant changes are documented in this file.
 
+## [2026.10.1] - 2026-10-23
+
+### Added
+
+- Added automatic usage detection for configured integrations, dashboards,
+  automations, scripts, and Lovelace resources.
+- Added candidate confirmation, ignoring, and conversion to manual usage records.
+- Preserved manual usage records during automatic reconciliation.
+
+## [2026.10.0] - 2026-10-23
+
+### Added
+
+- Added Home Assistant Marketplace discovery for Home Assistant 2026.11 and newer.
+
+### Changed
+
+- Preserved existing `hacs:owner/repository` tracker identities during the Marketplace migration.
+- Kept HACS discovery compatibility for older Home Assistant versions.
+- Displayed the active installation store separately from the stable historical source identity.
+- Added automatic Home Assistant brand icons and richer theme-aware status/category styling to the panel.
+- Added optional, separately synchronized records for configured Home Assistant Core integrations.
+- Improved icon resolution with the installed repository path and Home Assistant's authenticated brand route.
+
 ## [2026.9.1] - 2026-09-22
 
 ### Added

@@ -8,6 +8,7 @@ from typing import Any, Protocol
 from .const import STATUSES
 from .models import TrackedItem, Usage, utcnow_iso
 from .providers.base import IntegrationProvider
+from .usage_detection.models import DetectedUsage
 
 
 class StorageProtocol(Protocol):
@@ -159,12 +160,123 @@ class IntegrationRegistry:
             return usage
 
     async def async_remove_usage(self, item_id: str, usage_id: str) -> None:
-        """Remove a manual usage."""
+        """Remove a usage."""
         async with self._lock:
             item = self.get_item(item_id)
             usage = self._find_usage(item, usage_id)
             item.usages.remove(usage)
             await self._async_save()
+
+    async def async_reconcile_detected_usages(
+        self, detector: str, detections: list[DetectedUsage]
+    ) -> dict[str, int]:
+        """Reconcile one complete detector snapshot without touching manual usages."""
+        now = utcnow_iso()
+        for detection in detections:
+            detection.validate()
+            if detection.detector != detector:
+                raise RegistryError("Detection result belongs to another detector")
+
+        async with self._lock:
+            grouped: dict[str, dict[str, DetectedUsage]] = {}
+            for detection in detections:
+                self.get_item(detection.item_id)
+                item_detections = grouped.setdefault(detection.item_id, {})
+                if detection.detection_key in item_detections:
+                    raise RegistryError(
+                        f"Duplicate detection key: {detection.detection_key}"
+                    )
+                item_detections[detection.detection_key] = detection
+
+            counts = {"created": 0, "updated": 0, "stale": 0}
+            for item in self._items.values():
+                current = grouped.get(item.id, {})
+                existing = {
+                    usage.detection_key: usage
+                    for usage in item.usages
+                    if usage.source == "detected" and usage.detector == detector
+                }
+                migrated: set[str] = set()
+                for key, detection in current.items():
+                    usage = existing.get(key)
+                    if usage is None:
+                        usage = _find_legacy_dashboard_usage(
+                            existing.values(), detection, migrated
+                        )
+                        if usage is not None:
+                            migrated.add(usage.id)
+                    if usage is None:
+                        item.usages.append(
+                            Usage.from_detection(
+                                name=detection.name,
+                                usage_type=detection.type,
+                                url=detection.url,
+                                detection_key=detection.detection_key,
+                                detector=detection.detector,
+                                confidence=detection.confidence,
+                                evidence=detection.evidence,
+                                seen_at=now,
+                            )
+                        )
+                        counts["created"] += 1
+                        continue
+                    usage.name = detection.name
+                    usage.type = detection.type
+                    usage.url = detection.url
+                    usage.detection_key = detection.detection_key
+                    usage.confidence = detection.confidence
+                    usage.evidence = dict(detection.evidence)
+                    usage.last_seen_at = now
+                    usage.stale = False
+                    counts["updated"] += 1
+
+                for key, usage in existing.items():
+                    if key not in current and not usage.stale:
+                        usage.stale = True
+                        counts["stale"] += 1
+
+            await self._async_save()
+            return counts
+
+    async def async_confirm_detected_usage(self, item_id: str, usage_id: str) -> Usage:
+        """Confirm a detected usage without converting its origin."""
+        async with self._lock:
+            usage = self._find_usage(self.get_item(item_id), usage_id)
+            if usage.source != "detected":
+                raise RegistryError("Only detected usages can be confirmed")
+            usage.confirmed = True
+            usage.stale = False
+            await self._async_save()
+            return usage
+
+    async def async_ignore_detected_usage(self, item_id: str, usage_id: str) -> Usage:
+        """Ignore a detected usage while retaining its evidence."""
+        async with self._lock:
+            usage = self._find_usage(self.get_item(item_id), usage_id)
+            if usage.source != "detected":
+                raise RegistryError("Only detected usages can be ignored")
+            usage.confirmed = False
+            usage.ignored = True
+            await self._async_save()
+            return usage
+
+    async def async_convert_detected_usage(self, item_id: str, usage_id: str) -> Usage:
+        """Convert a detected usage to a user-owned usage."""
+        async with self._lock:
+            usage = self._find_usage(self.get_item(item_id), usage_id)
+            if usage.source != "detected":
+                raise RegistryError("Only detected usages can be converted")
+            usage.source = "manual"
+            usage.detection_key = None
+            usage.detector = None
+            usage.confidence = None
+            usage.confirmed = True
+            usage.ignored = False
+            usage.stale = False
+            usage.last_seen_at = None
+            usage.evidence = {}
+            await self._async_save()
+            return usage
 
     async def async_mark_reviewed(self, item_id: str) -> TrackedItem:
         """Record a review without replacing history."""
@@ -190,6 +302,32 @@ class IntegrationRegistry:
                 "metadata": self._metadata,
             }
         )
+
+
+def _find_legacy_dashboard_usage(
+    usages, detection: DetectedUsage, migrated: set[str]
+) -> Usage | None:
+    """Reuse pre-view-splitting dashboard detections after their URL changes."""
+    if detection.detector != "dashboards":
+        return None
+    record_id = str(detection.evidence.get("record_id") or "")
+    dashboard_id = record_id.split(":view:", 1)[0]
+    reference = detection.evidence.get("reference")
+    if not dashboard_id or not reference:
+        return None
+    for usage in usages:
+        if usage.id in migrated or usage.stale:
+            continue
+        old_record_id = str(usage.evidence.get("record_id") or "")
+        old_key = str(usage.detection_key or "")
+        if (
+            usage.type == detection.type
+            and usage.evidence.get("reference") == reference
+            and old_record_id == dashboard_id
+            and old_key.startswith(f"dashboards:{dashboard_id}:")
+        ):
+            return usage
+    return None
 
 
 def _normalize_tags(tags: Any) -> list[str]:

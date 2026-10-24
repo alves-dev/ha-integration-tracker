@@ -18,6 +18,9 @@ const USAGE_TYPES = [
   "automation",
   "script",
   "integration",
+  "resource",
+  "theme",
+  "blueprint",
   "other",
 ];
 
@@ -27,6 +30,9 @@ const USAGE_ICONS = {
   automation: "mdi:robot",
   script: "mdi:script-text",
   integration: "mdi:puzzle",
+  resource: "mdi:script-text-outline",
+  theme: "mdi:palette-outline",
+  blueprint: "mdi:file-tree",
   other: "mdi:link",
 };
 
@@ -49,6 +55,7 @@ class IntegrationTrackerPanel extends HTMLElement {
     this._loaded = false;
     this._loading = true;
     this._saving = false;
+    this._settingsOpen = false;
     this._error = "";
     this._data = undefined;
     this._selectedId = undefined;
@@ -59,9 +66,12 @@ class IntegrationTrackerPanel extends HTMLElement {
       status: "all",
       rating: "all",
       review: "all",
-      source: "all",
+      store: "all",
       category: "all",
       tags: "",
+      usageSource: "all",
+      usageState: "all",
+      usageConfidence: "all",
       sort: "name",
       direction: "asc",
     };
@@ -114,6 +124,30 @@ class IntegrationTrackerPanel extends HTMLElement {
     return this._data?.items.find((item) => item.id === this._selectedId);
   }
 
+  _storeKey(item) {
+    return item.provider_data?.store || item.source || "unknown";
+  }
+
+  _storeLabel(item) {
+    const labels = { marketplace: "Marketplace", hacs: "HACS" };
+    return labels[this._storeKey(item)] || this._storeKey(item).toUpperCase();
+  }
+
+  _categoryIcon(item) {
+    const icons = {
+      integration: "mdi:puzzle",
+      plugin: "mdi:view-dashboard-outline",
+      theme: "mdi:palette-outline",
+      template: "mdi:code-braces",
+    };
+    return icons[item.category] || "mdi:puzzle-outline";
+  }
+
+  _statusClass(item) {
+    if (!item.installed) return "muted";
+    return item.status || "installed";
+  }
+
   get filteredItems() {
     if (!this._data) return [];
     const query = this._filters.query.trim().toLocaleLowerCase();
@@ -147,8 +181,18 @@ class IntegrationTrackerPanel extends HTMLElement {
         item.rating !== Number(this._filters.rating)
       ) return false;
       if (this._filters.review !== "all" && item.review_state !== this._filters.review) return false;
-      if (this._filters.source !== "all" && item.source !== this._filters.source) return false;
+      if (this._filters.store !== "all" && this._storeKey(item) !== this._filters.store) return false;
       if (this._filters.category !== "all" && item.category !== this._filters.category) return false;
+      const usages = item.usages || [];
+      if (this._filters.usageSource !== "all" && !usages.some((usage) => usage.source === this._filters.usageSource)) return false;
+      if (this._filters.usageConfidence !== "all" && !usages.some((usage) => usage.confidence === this._filters.usageConfidence)) return false;
+      if (this._filters.usageState !== "all" && !usages.some((usage) => {
+        if (this._filters.usageState === "candidate") return usage.source === "detected" && !usage.confirmed && !usage.ignored && !usage.stale;
+        if (this._filters.usageState === "confirmed") return usage.confirmed && !usage.stale;
+        if (this._filters.usageState === "ignored") return usage.ignored;
+        if (this._filters.usageState === "stale") return usage.stale;
+        return false;
+      })) return false;
       const itemTags = item.tags.map((tag) => tag.toLocaleLowerCase());
       return wantedTags.every((tag) => itemTags.includes(tag));
     });
@@ -176,12 +220,53 @@ class IntegrationTrackerPanel extends HTMLElement {
     }
   }
 
-  _handleInput(event) {
+  async _handleInput(event) {
     const target = event.target;
+    const setting = target.dataset?.setting;
+    if (setting === "include_core" && event.type === "change") {
+      await this._saveSettings({ include_core: target.checked });
+      return;
+    }
+    if (setting === "enable_repairs" && event.type === "change") {
+      await this._saveSettings({ enable_repairs: target.checked });
+      return;
+    }
+    if (setting === "review_interval_days" && event.type === "change") {
+      await this._saveSettings({ review_interval_days: Number(target.value) });
+      return;
+    }
     const filter = target.dataset?.filter;
     if (!filter) return;
     this._filters[filter] = target.value;
     this._renderResults();
+  }
+
+  async _saveSettings(changes) {
+    if (this._saving) return;
+    const current = this._data?.settings || {};
+    const settings = {
+      include_core: current.include_core === true,
+      enable_repairs: current.enable_repairs !== false,
+      review_interval_days: Number(current.review_interval_days || 90),
+      ...changes,
+    };
+    this._saving = true;
+    this._error = "";
+    this.render();
+    try {
+      await this._hass.callWS({
+        type: "integration_tracker/settings/update",
+        ...settings,
+      });
+      this._announce("Settings saved");
+      await this.refresh();
+    } catch (error) {
+      this._error = error?.message || String(error);
+      this.render();
+    } finally {
+      this._saving = false;
+      this.render();
+    }
   }
 
   async _handleClick(event) {
@@ -197,8 +282,19 @@ class IntegrationTrackerPanel extends HTMLElement {
       this._selectedId = undefined;
       this._editingUsageId = undefined;
       this.render();
+    } else if (action === "open-settings") {
+      this._settingsOpen = true;
+      this.render();
+      queueMicrotask(() => this.shadowRoot.querySelector(".settings-dialog")?.focus());
+    } else if (action === "close-settings") {
+      this._settingsOpen = false;
+      this.render();
     } else if (action === "sync") {
       await this._sync(actionTarget);
+    } else if (action === "detect-usages") {
+      await this._detectUsages(actionTarget);
+    } else if (action === "refresh-usages") {
+      await this._refreshUsages(actionTarget);
     } else if (action === "review") {
       await this._review(actionTarget);
     } else if (action === "rating") {
@@ -215,6 +311,8 @@ class IntegrationTrackerPanel extends HTMLElement {
       await this._removeUsage(actionTarget);
     } else if (action === "usage-link") {
       this._openUrl(actionTarget.dataset.url);
+    } else if (["confirm-usage", "ignore-usage", "convert-usage"].includes(action)) {
+      await this._moderateUsage(actionTarget, action);
     }
   }
 
@@ -260,6 +358,39 @@ class IntegrationTrackerPanel extends HTMLElement {
     const ok = await this._runMutation(button, { type: "integration_tracker/sync" });
     if (button.isConnected) button.textContent = previousText;
     if (ok) this._announce("Synchronization completed");
+  }
+
+  async _detectUsages(button) {
+    const previousText = button.textContent;
+    button.textContent = "Detecting…";
+    const ok = await this._runMutation(button, { type: "integration_tracker/usage/detect" });
+    if (button.isConnected) button.textContent = previousText;
+    if (ok) this._announce("Usage detection completed");
+  }
+
+  async _refreshUsages(button) {
+    const previousText = button.textContent;
+    button.textContent = "Refreshing…";
+    const ok = await this._runMutation(button, {
+      type: "integration_tracker/usage/refresh",
+      item_id: this._selectedId,
+    });
+    if (button.isConnected) button.textContent = previousText;
+    if (ok) this._announce("Usages refreshed");
+  }
+
+  async _moderateUsage(button, action) {
+    const command = {
+      "confirm-usage": "integration_tracker/usage/confirm",
+      "ignore-usage": "integration_tracker/usage/ignore",
+      "convert-usage": "integration_tracker/usage/convert",
+    }[action];
+    const ok = await this._runMutation(button, {
+      type: command,
+      item_id: this._selectedId,
+      usage_id: button.dataset.usageId,
+    });
+    if (ok) this._announce("Usage updated");
   }
 
   async _review(button) {
@@ -341,6 +472,7 @@ class IntegrationTrackerPanel extends HTMLElement {
         ${this._loading ? this._renderLoading() : this._renderContent()}
       </main>
       ${this.selectedItem ? this._renderDialog(this.selectedItem) : ""}
+      ${this._settingsOpen ? this._renderSettingsDialog() : ""}
     `;
   }
 
@@ -349,17 +481,24 @@ class IntegrationTrackerPanel extends HTMLElement {
       ? this._formatDate(this._data.last_synced_at)
       : "Never";
     return `
-      <header>
-        <div>
+      <header class="page-hero">
+        <div class="hero-title">
+          <span class="hero-icon"><img src="/integration_tracker_static/brand/icon.png" alt="" /></span>
+          <div>
           <h1>Integration Tracker</h1>
-          <p>Inventory, context, lifecycle, and review for HACS repositories.</p>
+          <p>Inventory, context, lifecycle, and review for your community repositories.</p>
+          </div>
         </div>
         <div class="sync-block">
           <span>Last synchronized: ${escapeHtml(lastSync)}</span>
-          <button class="primary" data-action="sync" ${this._saving ? "disabled" : ""}>Sync now</button>
+          <div class="sync-actions">
+            <button class="secondary" data-action="open-settings" ${this._saving ? "disabled" : ""}>Open settings</button>
+            <button class="secondary" data-action="detect-usages" ${this._saving ? "disabled" : ""}>Detect usages</button>
+            <button class="primary" data-action="sync" ${this._saving ? "disabled" : ""}>Sync now</button>
+          </div>
         </div>
       </header>
-      ${this._data?.sync_error ? `<div class="message warning">HACS sync: ${escapeHtml(this._data.sync_error)}</div>` : ""}
+      ${this._data?.sync_error ? `<div class="message warning">Community-store sync: ${escapeHtml(this._data.sync_error)}</div>` : ""}
     `;
   }
 
@@ -374,19 +513,35 @@ class IntegrationTrackerPanel extends HTMLElement {
     return `${this._renderSummary()}${this._renderFilters()}<section id="results">${this._renderResultsHtml()}</section>`;
   }
 
+  _renderSettingsDialog() {
+    const includeCore = this._data.settings?.include_core === true;
+    const enableRepairs = this._data.settings?.enable_repairs !== false;
+    const reviewInterval = this._data.settings?.review_interval_days || 90;
+    return `<div class="overlay" data-action="close-settings">
+      <section class="dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" tabindex="-1" data-action="settings-dialog">
+        <div class="dialog-head"><div><h2 id="settings-dialog-title">Settings</h2><small>Configure panel visibility and review alerts.</small></div><button class="icon-button" data-action="close-settings" aria-label="Close settings">×</button></div>
+        <div class="dialog-body settings-body">
+          <label class="setting-toggle"><input type="checkbox" data-setting="include_core" ${includeCore ? "checked" : ""} ${this._saving ? "disabled" : ""}><span><strong>Show configured Home Assistant Core integrations</strong><small>Includes only Core integrations with a configured entry. Default: off.</small></span></label>
+          <label class="setting-toggle"><input type="checkbox" data-setting="enable_repairs" ${enableRepairs ? "checked" : ""} ${this._saving ? "disabled" : ""}><span><strong>Generate review repairs</strong><small>Creates Home Assistant repair notices for items that need review. Default: on.</small></span></label>
+          <label class="setting-field"><span><strong>Review interval (days)</strong><small>Days until a reviewed item needs attention again.</small></span><input data-setting="review_interval_days" type="number" min="1" max="3650" value="${reviewInterval}" ${this._saving ? "disabled" : ""}></label>
+        </div>
+      </section>
+    </div>`;
+  }
+
   _renderSummary() {
     const summary = this._data.summary;
     const cards = [
-      [summary.total, "Tracked"],
-      [summary.statuses.active || 0, "Active"],
-      [summary.statuses.testing || 0, "Testing"],
-      [summary.needs_review, "Need review"],
-      [summary.no_known_usage, "No known usage"],
-      [summary.never_reviewed, "Never reviewed"],
-      [summary.uninstalled, "Uninstalled"],
+      [summary.total, "Tracked", "primary"],
+      [summary.statuses.active || 0, "Active", "success"],
+      [summary.statuses.testing || 0, "Testing", "info"],
+      [summary.needs_review, "Need review", "warning"],
+      [summary.no_known_usage, "No known usage", "neutral"],
+      [summary.never_reviewed, "Never reviewed", "warning"],
+      [summary.uninstalled, "Uninstalled", "muted"],
     ];
     return `<section class="summary" aria-label="Registry summary">${cards
-      .map(([value, label]) => `<article><strong>${value}</strong><span>${label}</span></article>`)
+      .map(([value, label, tone]) => `<article class="tone-${tone}"><strong>${value}</strong><span>${label}</span></article>`)
       .join("")}</section>`;
   }
 
@@ -407,13 +562,16 @@ class IntegrationTrackerPanel extends HTMLElement {
         <label><span>Review</span><select data-filter="review">
           ${option("all", "All", f.review)}${Object.entries(REVIEW_LABELS).map(([value, label]) => option(value, label, f.review)).join("")}
         </select></label>
-        <label><span>Source</span><select data-filter="source">
-          ${option("all", "All", f.source)}${this._data.sources.map((value) => option(value, value.toUpperCase(), f.source)).join("")}
+        <label><span>Store</span><select data-filter="store">
+          ${option("all", "All", f.store)}${(this._data.stores || this._data.sources).map((value) => option(value, value === "marketplace" ? "Marketplace" : value.toUpperCase(), f.store)).join("")}
         </select></label>
         <label><span>Category</span><select data-filter="category">
           ${option("all", "All", f.category)}${this._data.categories.map((value) => option(value, value, f.category)).join("")}
         </select></label>
         <label><span>Tags</span><input data-filter="tags" list="filter-tags" value="${escapeHtml(f.tags)}" placeholder="dashboard, important"><datalist id="filter-tags">${this._data.tags.map((tag) => `<option value="${escapeHtml(tag)}"></option>`).join("")}</datalist></label>
+        <label><span>Usage source</span><select data-filter="usageSource">${option("all", "All", f.usageSource)}${option("manual", "Manual", f.usageSource)}${option("detected", "Detected", f.usageSource)}</select></label>
+        <label><span>Usage state</span><select data-filter="usageState">${option("all", "All", f.usageState)}${option("candidate", "Candidate", f.usageState)}${option("confirmed", "Confirmed", f.usageState)}${option("ignored", "Ignored", f.usageState)}${option("stale", "Stale", f.usageState)}</select></label>
+        <label><span>Confidence</span><select data-filter="usageConfidence">${option("all", "All", f.usageConfidence)}${option("high", "High", f.usageConfidence)}${option("medium", "Medium", f.usageConfidence)}${option("low", "Low", f.usageConfidence)}</select></label>
         <label><span>Sort</span><select data-filter="sort">
           ${option("name", "Name", f.sort)}${option("rating", "Rating", f.sort)}${option("status", "Status", f.sort)}${option("last_reviewed", "Last reviewed", f.sort)}${option("discovered", "Discovered", f.sort)}${option("usages", "Usage count", f.sort)}${option("installed", "Installation", f.sort)}
         </select></label>
@@ -434,17 +592,17 @@ class IntegrationTrackerPanel extends HTMLElement {
     return `
       <div class="result-count">${items.length} of ${this._data.items.length} integrations</div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Integration</th><th>Source</th><th>Category</th><th>Status</th><th>Rating</th><th>Uses</th><th>Last review</th><th>Installed</th><th>Version</th></tr></thead>
+        <thead><tr><th>Integration</th><th>Store</th><th>Category</th><th>Status</th><th>Rating</th><th>Uses</th><th>Last review</th><th>Installed</th><th>Version</th></tr></thead>
         <tbody>${items.map((item) => this._renderRow(item)).join("")}</tbody>
       </table></div>`;
   }
 
   _renderRow(item) {
-    return `<tr class="${item.installed ? "" : "uninstalled"}" tabindex="0" data-action="open" data-item-id="${escapeHtml(item.id)}">
+    return `<tr class="${item.installed ? "" : "uninstalled"} status-${escapeHtml(this._statusClass(item))}" tabindex="0" data-action="open" data-item-id="${escapeHtml(item.id)}">
       <td><div class="integration-cell">${this._renderIcon(item)}<div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.repository)}</small></div></div></td>
-      <td>${escapeHtml(item.source.toUpperCase())}</td>
-      <td>${escapeHtml(item.category || "—")}</td>
-      <td>${this._badge(item.status ? STATUS_LABELS[item.status] : "No status")}</td>
+      <td>${this._badge(this._storeLabel(item), `store-${this._storeKey(item)}`)}</td>
+      <td><span class="category-label"><ha-icon icon="${this._categoryIcon(item)}"></ha-icon>${escapeHtml(item.category || "—")}</span></td>
+      <td>${this._badge(item.status ? STATUS_LABELS[item.status] : "No status", this._statusClass(item))}</td>
       <td class="stars" aria-label="${item.rating ? `${item.rating} stars` : "No rating"}">${item.rating ? "★".repeat(item.rating) + "☆".repeat(3 - item.rating) : "—"}</td>
       <td>${item.usages.length}</td>
       <td>${escapeHtml(this._formatDate(item.last_reviewed_at))}<small>${escapeHtml(REVIEW_LABELS[item.review_state])}</small></td>
@@ -454,10 +612,10 @@ class IntegrationTrackerPanel extends HTMLElement {
   }
 
   _renderIcon(item) {
-    if (item.icon && /^https?:\/\//i.test(item.icon)) {
-      return `<img class="item-icon" src="${escapeHtml(item.icon)}" alt="">`;
+    if (item.icon && /^(https?:\/\/|data:image\/)/i.test(item.icon)) {
+      return `<span class="item-icon-wrap"><img class="item-icon" src="${escapeHtml(item.icon)}" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="item-icon fallback" hidden><ha-icon icon="${this._categoryIcon(item)}"></ha-icon></span></span>`;
     }
-    return `<span class="item-icon fallback"><ha-icon icon="mdi:puzzle"></ha-icon></span>`;
+    return `<span class="item-icon fallback"><ha-icon icon="${this._categoryIcon(item)}"></ha-icon></span>`;
   }
 
   _badge(text, style = "") {
@@ -476,7 +634,8 @@ class IntegrationTrackerPanel extends HTMLElement {
           <section class="metadata">
             <h3>Provider metadata</h3>
             <dl>
-              <div><dt>Source</dt><dd>${escapeHtml(item.source.toUpperCase())}</dd></div>
+              <div><dt>Installation store</dt><dd>${escapeHtml(this._storeLabel(item))}</dd></div>
+              <div><dt>Stable identity</dt><dd>${escapeHtml(item.source)}:${escapeHtml(item.repository)}</dd></div>
               <div><dt>Category</dt><dd>${escapeHtml(item.category || "—")}</dd></div>
               <div><dt>Installed</dt><dd>${item.installed ? "Yes" : "No"}</dd></div>
               <div><dt>Installed version</dt><dd>${escapeHtml(item.version || "—")}</dd></div>
@@ -498,7 +657,7 @@ class IntegrationTrackerPanel extends HTMLElement {
             <button class="primary" type="submit" ${this._saving ? "disabled" : ""}>Save details</button>
           </form>
           <section class="usages">
-            <div class="section-heading"><div><h3>Known usages</h3><p>${item.usages.length} registered</p></div></div>
+            <div class="section-heading"><div><h3>Known usages</h3><p>${item.usages.length} registered</p></div><button class="secondary" data-action="refresh-usages" ${this._saving ? "disabled" : ""}>Refresh usages</button></div>
             ${item.usages.length ? `<ul>${item.usages.map((usage) => this._renderUsage(usage)).join("")}</ul>` : `<div class="empty compact">No known usage has been registered.</div>`}
             ${this._renderUsageForm(editing)}
           </section>
@@ -513,8 +672,19 @@ class IntegrationTrackerPanel extends HTMLElement {
   }
 
   _renderUsage(usage) {
-    return `<li><div class="usage-main"><ha-icon icon="${USAGE_ICONS[usage.type] || USAGE_ICONS.other}"></ha-icon><div><strong>${escapeHtml(usage.name)}</strong><small>${escapeHtml(usage.type)}${usage.url ? ` · ${escapeHtml(usage.url)}` : ""}</small></div></div><div class="row-actions">
+    const state = usage.source === "detected"
+      ? (usage.ignored ? "Ignored" : usage.stale ? "Stale" : usage.confirmed ? "Confirmed" : "Candidate")
+      : "Manual";
+    const evidence = usage.evidence || {};
+    const evidenceText = evidence.reference
+      ? `Evidence: ${evidence.reference}${evidence.path ? ` · ${evidence.path}` : ""}`
+      : "No automatic evidence recorded";
+    const detectorText = usage.detector ? ` · ${usage.detector}` : "";
+    const confidenceText = usage.confidence ? ` · ${usage.confidence} confidence` : "";
+    return `<li><div class="usage-main"><ha-icon icon="${USAGE_ICONS[usage.type] || USAGE_ICONS.other}"></ha-icon><div><strong>${escapeHtml(usage.name)}</strong><small>${escapeHtml(usage.type)}${usage.url ? ` · ${escapeHtml(usage.url)}` : ""}</small><small class="usage-meta"><span class="badge ${usage.source === "detected" ? "info" : "muted"}">${escapeHtml(state)}</span>${escapeHtml(`${detectorText}${confidenceText}`)}</small><small class="usage-evidence">${escapeHtml(evidenceText)}${usage.last_seen_at ? ` · Last seen ${escapeHtml(this._formatDate(usage.last_seen_at))}` : ""}</small></div></div><div class="row-actions">
       ${usage.url ? `<button class="text-button" data-action="usage-link" data-url="${escapeHtml(usage.url)}">Open</button>` : ""}
+      ${usage.source === "detected" && !usage.confirmed && !usage.ignored ? `<button class="text-button" data-action="confirm-usage" data-usage-id="${escapeHtml(usage.id)}">Confirm</button><button class="text-button" data-action="ignore-usage" data-usage-id="${escapeHtml(usage.id)}">Ignore</button>` : ""}
+      ${usage.source === "detected" ? `<button class="text-button" data-action="convert-usage" data-usage-id="${escapeHtml(usage.id)}">Keep manually</button>` : ""}
       <button class="text-button" data-action="edit-usage" data-usage-id="${escapeHtml(usage.id)}">Edit</button>
       <button class="text-button danger" data-action="remove-usage" data-usage-id="${escapeHtml(usage.id)}">Remove</button>
     </div></li>`;
@@ -551,24 +721,28 @@ class IntegrationTrackerPanel extends HTMLElement {
       button,.button,input,select,textarea { font:inherit; } button,.button { min-height:40px; border-radius:var(--ha-card-border-radius, 10px); padding:8px 14px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--divider-color); color:var(--primary-text-color); background:var(--card-background-color); }
       button:focus-visible,.button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,tr:focus-visible { outline:3px solid var(--primary-color); outline-offset:2px; }
       button:disabled { opacity:.55; cursor:wait; } button.primary { color:var(--text-primary-color); background:var(--primary-color); border-color:var(--primary-color); font-weight:600; } .secondary { background:var(--secondary-background-color); } .text-button { min-height:34px; padding:4px 8px; border-color:transparent; background:transparent; color:var(--primary-color); } .danger { color:var(--error-color); }
-      .sync-block { display:flex; flex-direction:column; align-items:flex-end; gap:8px; color:var(--secondary-text-color); font-size:.9rem; }
+      .sync-block { display:flex; flex-direction:column; align-items:flex-end; gap:8px; color:var(--secondary-text-color); font-size:.9rem; } .sync-actions { display:flex; align-items:center; gap:8px; }
       .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:20px; }
       .summary article,.filters,.table-wrap,.metadata,.editor,.usages,.reviews { background:var(--card-background-color); border:1px solid var(--divider-color); border-radius:var(--ha-card-border-radius, 12px); box-shadow:var(--ha-card-box-shadow, none); }
-      .summary article { padding:16px; display:flex; flex-direction:column; gap:4px; } .summary strong { font-size:1.65rem; color:var(--primary-color); } .summary span { color:var(--secondary-text-color); }
+      .setting-toggle,.setting-field { display:flex; flex-direction:row; align-items:flex-start; gap:12px; margin-top:16px; cursor:pointer; } .setting-toggle input { width:20px; height:20px; margin:2px 0 0; accent-color:var(--primary-color); } .setting-toggle strong,.setting-toggle small,.setting-field strong,.setting-field small { display:block; } .setting-toggle small,.setting-field small { color:var(--secondary-text-color); margin-top:4px; } .setting-field { align-items:center; cursor:default; } .setting-field > span { flex:1; } .setting-field input { max-width:120px; } .settings-body { gap:4px; }
+      .summary article { position:relative; overflow:hidden; padding:16px; display:flex; flex-direction:column; gap:4px; } .summary article::before { content:""; position:absolute; inset:0 auto 0 0; width:4px; background:var(--primary-color); } .summary strong { font-size:1.65rem; color:var(--primary-color); } .summary span { color:var(--secondary-text-color); } .summary .tone-success::before { background:var(--success-color); } .summary .tone-success strong { color:var(--success-color); } .summary .tone-info::before { background:var(--info-color, var(--primary-color)); } .summary .tone-info strong { color:var(--info-color, var(--primary-color)); } .summary .tone-warning::before { background:var(--warning-color); } .summary .tone-warning strong { color:var(--warning-color); } .summary .tone-muted::before { background:var(--disabled-text-color); } .summary .tone-neutral::before { background:var(--secondary-text-color); }
       .filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:12px; padding:16px; margin-bottom:18px; } .filters .search { grid-column:span 2; }
       label { display:flex; flex-direction:column; gap:6px; font-size:.9rem; } label>span,legend { font-weight:600; } label small { color:var(--secondary-text-color); font-weight:400; }
       input,select,textarea { width:100%; color:var(--primary-text-color); background:var(--input-fill-color, var(--secondary-background-color)); border:1px solid var(--input-idle-line-color, var(--divider-color)); border-radius:8px; padding:10px 12px; } textarea { resize:vertical; }
       .result-count { color:var(--secondary-text-color); margin:0 0 8px 4px; } .table-wrap { overflow:auto; } table { width:100%; border-collapse:collapse; min-width:980px; } th,td { padding:13px 12px; text-align:left; border-bottom:1px solid var(--divider-color); } th { color:var(--secondary-text-color); font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; } tbody tr { cursor:pointer; } tbody tr:hover { background:var(--secondary-background-color); } tbody tr:last-child td { border-bottom:0; } tr.uninstalled { opacity:.72; }
+      .hero-title { display:flex; align-items:center; gap:14px; } .hero-icon { display:grid; place-items:center; width:52px; height:52px; padding:7px; background:var(--primary-color); border-radius:16px; box-shadow:var(--ha-card-box-shadow, none); } .hero-icon img { width:100%; height:100%; object-fit:contain; border-radius:10px; }
       .integration-cell { display:flex; align-items:center; gap:12px; min-width:200px; } .integration-cell strong,.integration-cell small { display:block; } .integration-cell small,td small { color:var(--secondary-text-color); margin-top:3px; }
-      .item-icon { width:40px; height:40px; object-fit:contain; flex:0 0 40px; border-radius:8px; } .item-icon.fallback { display:grid; place-items:center; color:var(--primary-color); background:var(--secondary-background-color); }
-      .badge { display:inline-flex; border:1px solid var(--divider-color); background:var(--secondary-background-color); border-radius:999px; padding:3px 9px; white-space:nowrap; } .badge.success { color:var(--success-color); } .badge.muted { color:var(--secondary-text-color); } .stars,.star-button.selected { color:var(--warning-color); }
+      .item-icon-wrap { display:grid; place-items:center; width:40px; height:40px; flex:0 0 40px; } .item-icon { width:40px; height:40px; object-fit:contain; border-radius:8px; } .item-icon.fallback { display:grid; place-items:center; color:var(--primary-color); background:var(--secondary-background-color); border:1px solid var(--divider-color); }
+      [hidden] { display:none !important; }
+      .category-label { display:inline-flex; align-items:center; gap:6px; color:var(--secondary-text-color); } .category-label ha-icon { --mdc-icon-size:18px; color:var(--primary-color); }
+      .badge { display:inline-flex; border:1px solid var(--divider-color); background:var(--secondary-background-color); border-radius:999px; padding:3px 9px; white-space:nowrap; } .badge.success,.badge.store-marketplace { color:var(--success-color); border-color:color-mix(in srgb, var(--success-color) 45%, var(--divider-color)); } .badge.testing,.badge.info { color:var(--info-color, var(--primary-color)); } .badge.warning,.badge.active { color:var(--warning-color); } .badge.replace,.badge.archived { color:var(--error-color); } .badge.installed { color:var(--success-color); } .badge.muted,.badge.unused { color:var(--secondary-text-color); } .badge.store-hacs { color:var(--primary-color); } .stars,.star-button.selected { color:var(--warning-color); }
       .message { border:1px solid var(--divider-color); border-left:4px solid var(--primary-color); background:var(--card-background-color); border-radius:8px; padding:12px 14px; margin-bottom:16px; } .message.error { border-left-color:var(--error-color); } .message.warning { border-left-color:var(--warning-color); }
       .loading,.empty { text-align:center; padding:56px 24px; color:var(--secondary-text-color); } .loading { display:flex; justify-content:center; gap:10px; } .spinner { width:20px; height:20px; border:2px solid var(--divider-color); border-top-color:var(--primary-color); border-radius:50%; animation:spin .8s linear infinite; } @keyframes spin { to { transform:rotate(360deg); } }
       .overlay { position:fixed; z-index:10; inset:0; background:var(--mdc-dialog-scrim-color, rgba(0,0,0,.45)); display:flex; justify-content:flex-end; } .dialog { width:min(720px,100%); height:100%; overflow:auto; background:var(--primary-background-color); box-shadow:var(--ha-card-box-shadow); }
       .dialog-head { position:sticky; top:0; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 22px; border-bottom:1px solid var(--divider-color); background:var(--app-header-background-color, var(--card-background-color)); color:var(--app-header-text-color, var(--primary-text-color)); } .dialog-head h2 { margin-bottom:3px; } .icon-button { font-size:1.7rem; min-width:42px; padding:0; border-color:transparent; background:transparent; }
       .dialog-body { display:grid; gap:16px; padding:18px 22px calc(28px + env(safe-area-inset-bottom)); } .metadata,.editor,.usages,.reviews { padding:18px; } dl { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; } dl div { min-width:0; } dt { color:var(--secondary-text-color); font-size:.8rem; } dd { margin:3px 0 0; overflow-wrap:anywhere; }
       .editor { display:grid; gap:14px; } fieldset { border:0; padding:0; margin:0; } .rating-control { display:flex; align-items:center; gap:2px; margin-top:5px; } .star-button { border:0; background:transparent; font-size:1.8rem; padding:2px; color:var(--disabled-text-color); }
-      .section-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; } .section-heading h3 { margin-bottom:3px; } .usages ul { list-style:none; margin:12px 0 18px; padding:0; } .usages li { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--divider-color); } .usage-main { display:flex; align-items:center; gap:10px; min-width:0; } .usage-main strong,.usage-main small { display:block; overflow-wrap:anywhere; } .usage-main small { color:var(--secondary-text-color); margin-top:3px; } .row-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; }
+      .section-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; } .section-heading h3 { margin-bottom:3px; } .usages ul { list-style:none; margin:12px 0 18px; padding:0; } .usages li { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--divider-color); } .usage-main { display:flex; align-items:flex-start; gap:10px; min-width:0; } .usage-main strong,.usage-main small { display:block; overflow-wrap:anywhere; } .usage-main small { color:var(--secondary-text-color); margin-top:3px; } .usage-main .usage-meta { display:flex; align-items:center; gap:6px; flex-wrap:wrap; } .usage-main .usage-meta .badge { font-size:.75rem; padding:2px 7px; } .usage-evidence { font-size:.78rem; opacity:.8; } .row-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; }
       .usage-form { display:grid; grid-template-columns:2fr 1fr; gap:12px; padding-top:8px; } .usage-form h4,.usage-form label:last-of-type,.form-actions { grid-column:1/-1; } .form-actions { display:flex; gap:8px; } .empty.compact { padding:18px; background:var(--secondary-background-color); border-radius:8px; } .reviews ol { margin-bottom:0; }
       .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
       @media (max-width:800px) { main { padding:16px; } header { flex-direction:column; } .sync-block { align-items:flex-start; } .filters .search { grid-column:1/-1; } th:nth-child(3),td:nth-child(3),th:nth-child(6),td:nth-child(6),th:nth-child(9),td:nth-child(9) { display:none; } table { min-width:690px; } .dialog-head,.dialog-body { padding-left:14px; padding-right:14px; } dl { grid-template-columns:1fr; } .usages li { align-items:flex-start; flex-direction:column; } .row-actions { justify-content:flex-start; } }

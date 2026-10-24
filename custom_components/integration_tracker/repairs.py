@@ -17,11 +17,15 @@ ISSUE_PREFIXES = (f"{ISSUE_NEVER_REVIEWED}_", f"{ISSUE_NEEDS_REVIEW}_")
 
 
 def async_update_review_issues(
-    hass: HomeAssistant, items: Iterable[TrackedItem], interval_days: int
+    hass: HomeAssistant,
+    items: Iterable[TrackedItem],
+    interval_days: int,
+    *,
+    enabled: bool = True,
 ) -> None:
     """Create one review issue per tracked item that needs attention."""
     current_issue_ids: set[str] = set()
-    for item in items:
+    for item in items if enabled else ():
         review_state = item.review_state(interval_days)
         if review_state not in (ISSUE_NEVER_REVIEWED, ISSUE_NEEDS_REVIEW):
             continue

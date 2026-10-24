@@ -10,6 +10,11 @@ All Integration Tracker WebSocket commands require an authenticated Home Assista
 | `integration_tracker/usage/add` | Add a usage | `item_id`, `name`, `usage_type`, optional `url` |
 | `integration_tracker/usage/update` | Edit a usage | add fields plus `usage_id` |
 | `integration_tracker/usage/remove` | Remove a usage | `item_id`, `usage_id` |
+| `integration_tracker/usage/detect` | Run automatic usage detection | none |
+| `integration_tracker/usage/refresh` | Refresh detections and return one item | `item_id` |
+| `integration_tracker/usage/confirm` | Confirm a detected usage | `item_id`, `usage_id` |
+| `integration_tracker/usage/ignore` | Ignore a detected usage | `item_id`, `usage_id` |
+| `integration_tracker/usage/convert` | Convert a detected usage to manual | `item_id`, `usage_id` |
 | `integration_tracker/review` | Mark an item reviewed | `item_id` |
 | `integration_tracker/sync` | Run HACS synchronization | none |
 
@@ -17,4 +22,8 @@ All Integration Tracker WebSocket commands require an authenticated Home Assista
 
 `integration_tracker/update` rejects provider-owned keys. A rating is `null` or an integer from 1 through 3. Supported initial lifecycle statuses are `active`, `testing`, `unused`, `replace`, and `archived`.
 
-Usage URLs may be Home Assistant paths beginning with `/` or absolute HTTP(S) URLs. Usages include `source: manual` so future detected usages can use the same data model.
+Usage URLs may be Home Assistant paths beginning with `/` or absolute HTTP(S) URLs.
+Manual usages have `source: manual`. Automatically discovered usages have
+`source: detected`, a stable `detection_key`, detector name, confidence, evidence,
+confirmation state, and last-seen timestamp. Detectors only reconcile their own
+records and do not modify manual usages.

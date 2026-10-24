@@ -8,6 +8,7 @@ from homeassistant.core import HomeAssistant
 
 from ..models import ProviderItem
 from .base import IntegrationProvider, ProviderUnavailableError
+from .icons import async_resolve_icon
 
 
 def _string_value(value: Any) -> str | None:
@@ -55,6 +56,10 @@ class HacsProvider(IntegrationProvider):
                 continue
 
             name = _string_value(getattr(repository, "display_name", None)) or full_name
+            domain = _string_value(getattr(data, "domain", None))
+            icon = await async_resolve_icon(
+                self._hass, domain, getattr(repository, "localpath", None)
+            )
             discovered.append(
                 ProviderItem(
                     source=self.source,
@@ -68,12 +73,14 @@ class HacsProvider(IntegrationProvider):
                     available_version=_string_value(
                         getattr(repository, "display_available_version", None)
                     ),
+                    icon=icon,
                     provider_data={
                         "description": _string_value(
                             getattr(data, "description", None)
                         ),
-                        "domain": _string_value(getattr(data, "domain", None)),
+                        "domain": domain,
                         "hacs_id": _string_value(getattr(data, "id", None)),
+                        "store": "hacs",
                         "pending_update": bool(
                             getattr(repository, "pending_update", False)
                         ),

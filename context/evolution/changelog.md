@@ -30,6 +30,59 @@
 *This changelog documents the state when Context Mesh was added.*
 *Future changes will be tracked below.*
 
+## 2026.10.24
+
+- Aligned the development-release cleanup workflow with the shared retention
+  schedule and default of eight prereleases.
+- Updated the project intent to reflect version `2026.10.1` and automatic usage
+  detection.
+- Fixed development prerelease cleanup to pass the GitHub repository explicitly,
+  allowing the workflow to run without checking out the repository.
+
+## 2026.10.23
+
+- Documented the proposed automatic usage detection feature and its SDD.
+- Defined separate handling for detected and manual usages, stable detection keys,
+  evidence, confidence, stale results, and phased implementation tasks.
+
+## 2026.10.1
+
+- Implemented the first automatic usage detection slice with persistent detected
+  usages, detector snapshots, registry reconciliation, WebSocket moderation, and
+  panel actions.
+- Updated the integration version and panel asset cache key for validation.
+- Added stored-dashboard fallback loading and visible detection evidence in the panel.
+- Added structural reference detection for devices, areas, events, and blueprints.
+- Added scene component collection when Home Assistant exposes scene configurations.
+- Fixed area reference resolution for Home Assistant versions where `AreaEntry`
+  does not expose device or entity collections.
+- Fixed detected Lovelace usage links to use the dashboard `url_path` and view path.
+- Added migration of previously stored dashboard detections so old `/dashboard/...`
+  links are updated instead of remaining as stale candidates.
+- Fixed automation usage links to use the automation configuration ID, such as
+  `/config/automation/edit/1780921324759`.
+- Added per-item usage refresh, partial detector error reporting, blueprint/theme
+  snapshots, and usage source/state/confidence filters.
+- Fixed dashboard theme references such as `Catppuccin Mocha` by matching theme
+  names against repository owner and name tokens.
+- Removed automation-to-script dependency analysis from the Integration Tracker
+  plan because it is covered by another integration in the user's environment.
+- Documented explicitly that Python scripts, templates, and indirect associations
+  are not implemented in the current release.
+
+## 2026.10.0
+
+- Added Marketplace discovery for Home Assistant 2026.11+ with HACS fallback for older versions.
+- Preserved the historical `hacs` source identity across the discovery backend migration.
+- Removed the ordering dependency on the HACS custom integration.
+- Added separate Marketplace/HACS store display, automatic brand icons, category fallbacks, and theme-aware panel status styling.
+- Added optional, independently synchronized records for configured Home Assistant Core integrations.
+- Improved icon resolution with the installed repository path and Home Assistant's authenticated brand route.
+- Served the panel header icon from the integration's bundled local brand asset instead of the `/api/brands` endpoint.
+- Added configurable review-repair generation and review interval settings in the options flow and panel settings card.
+- Limited repair generation to the same configured Core inventory scope as the panel and moved settings into a compact floating dialog.
+- Placed the settings action beside the synchronization action in the panel header.
+
 ## 2026.9.1
 
 - Added persistent Home Assistant repair issues for never-reviewed and review-overdue tracked integrations.
