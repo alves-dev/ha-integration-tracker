@@ -115,6 +115,30 @@ def _reference_domains(hass: HomeAssistant) -> dict[str, set[str]]:
     return domains
 
 
+def _dashboard_view_records(
+    identifier: str, dashboard_name: str, base_url: str, config: dict[str, Any]
+) -> list[ComponentRecord]:
+    """Create records whose links point to the dashboard view containing a reference."""
+    views = config.get("views")
+    if not isinstance(views, list) or not views:
+        return [ComponentRecord(identifier, dashboard_name, base_url, config)]
+
+    records: list[ComponentRecord] = []
+    for index, view in enumerate(views):
+        if not isinstance(view, dict):
+            continue
+        view_path = str(view.get("path") or index)
+        records.append(
+            ComponentRecord(
+                identifier=f"{identifier}:view:{view_path}",
+                name=f"{dashboard_name} — {view.get('title') or view_path}",
+                url=f"{base_url.rstrip('/')}/{view_path}",
+                config={"view": view},
+            )
+        )
+    return records or [ComponentRecord(identifier, dashboard_name, base_url, config)]
+
+
 async def _dashboard_snapshot(
     hass: HomeAssistant, items: Sequence[TrackedItem]
 ) -> DetectionSnapshot:
@@ -129,12 +153,12 @@ async def _dashboard_snapshot(
             except (HomeAssistantError, KeyError, TypeError, ValueError):
                 continue
             dashboard_path = url_path or "lovelace"
-            records.append(
-                ComponentRecord(
-                    identifier=f"dashboard:{dashboard_path}",
-                    name=str(config.get("title") or dashboard_path),
-                    url=f"/dashboard/{dashboard_path}" if url_path else "/lovelace",
-                    config=config,
+            records.extend(
+                _dashboard_view_records(
+                    f"dashboard:{dashboard_path}",
+                    str(config.get("title") or dashboard_path),
+                    f"/{dashboard_path}" if url_path else "/lovelace",
+                    config,
                 )
             )
             loaded_sources += 1
@@ -177,12 +201,12 @@ async def _async_load_storage_dashboards(
     try:
         default_data = await Store(hass, 1, "lovelace").async_load()
         if isinstance(default_data, dict) and isinstance(default_data.get("config"), dict):
-            records.append(
-                ComponentRecord(
-                    identifier="dashboard:lovelace",
-                    name=str(default_data["config"].get("title") or "lovelace"),
-                    url="/lovelace",
-                    config=default_data["config"],
+            records.extend(
+                _dashboard_view_records(
+                    "dashboard:lovelace",
+                    str(default_data["config"].get("title") or "lovelace"),
+                    "/lovelace",
+                    default_data["config"],
                 )
             )
             loaded_sources += 1
@@ -202,12 +226,12 @@ async def _async_load_storage_dashboards(
             if not isinstance(config, dict):
                 continue
             url_path = str(dashboard.get("url_path") or dashboard_id)
-            records.append(
-                ComponentRecord(
-                    identifier=f"dashboard:{url_path}",
-                    name=str(dashboard.get("title") or url_path),
-                    url=f"/dashboard/{url_path}",
-                    config=config,
+            records.extend(
+                _dashboard_view_records(
+                    f"dashboard:{url_path}",
+                    str(dashboard.get("title") or url_path),
+                    f"/{url_path}",
+                    config,
                 )
             )
             loaded_sources += 1

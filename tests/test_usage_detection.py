@@ -133,6 +133,25 @@ def test_reference_domains_resolves_area_without_area_entry_collections(monkeypa
     assert domains["area-1"] == {"example"}
 
 
+def test_dashboard_view_records_use_dashboard_url_path_and_view_path():
+    records = coordinator._dashboard_view_records(
+        "dashboard:dashboard-infra",
+        "Infra",
+        "/dashboard-infra",
+        {
+            "views": [
+                {"path": "infra", "title": "Infra", "cards": []},
+                {"path": "ip", "title": "IP", "cards": []},
+            ]
+        },
+    )
+
+    assert [record.url for record in records] == [
+        "/dashboard-infra/infra",
+        "/dashboard-infra/ip",
+    ]
+
+
 def test_component_detector_matches_domain_and_preserves_evidence():
     item = tracked_item()
     detections = detect_component_usages(
@@ -214,7 +233,7 @@ async def test_storage_dashboard_fallback_loads_dashboard_and_resources(monkeypa
 
     assert loaded == 3
     assert {record.identifier for record in records} == {
-        "dashboard:lovelace",
-        "dashboard:dashboard-testes",
+        "dashboard:lovelace:view:0",
+        "dashboard:dashboard-testes:view:0",
         "resource:/hacsfiles/example-card/card.js",
     }

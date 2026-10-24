@@ -47,6 +47,7 @@
 - Added scene component collection when Home Assistant exposes scene configurations.
 - Fixed area reference resolution for Home Assistant versions where `AreaEntry`
   does not expose device or entity collections.
+- Fixed detected Lovelace usage links to use the dashboard `url_path` and view path.
 
 ## 2026.10.0
 
