@@ -30,6 +30,11 @@
 *This changelog documents the state when Context Mesh was added.*
 *Future changes will be tracked below.*
 
+## 2026.10.24
+
+- Fixed development prerelease cleanup to pass the GitHub repository explicitly,
+  allowing the workflow to run without checking out the repository.
+
 ## 2026.10.23
 
 - Documented the proposed automatic usage detection feature and its SDD.

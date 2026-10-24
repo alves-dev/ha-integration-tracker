@@ -33,9 +33,9 @@ jobs:
       - name: Remove older development prereleases
         run: |
           set -o pipefail
-          gh release list --limit 1000 --json tagName,isPrerelease,createdAt \
+          gh release list --repo "${GITHUB_REPOSITORY}" --limit 1000 --json tagName,isPrerelease,createdAt \
             --jq '[.[] | select(.isPrerelease and (.tagName | test("^v[0-9]{4}\\.[0-9]{1,2}\\.[0-9]+-dev-[0-9a-f]{7}$"))) | .tagName] | .['"${KEEP}"':] | .[]' \
             | while IFS= read -r tag; do
                 echo "Deleting development prerelease ${tag}"
-                gh release delete "${tag}" --yes --cleanup-tag
+                gh release delete "${tag}" --repo "${GITHUB_REPOSITORY}" --yes --cleanup-tag
               done
