@@ -15,7 +15,8 @@ HACS or Marketplace remains responsible for installation and updates. Integratio
 - Keeps a persistent record of installed and uninstalled repositories.
 - Provides ratings from one to three stars, lifecycle statuses, multiline notes, and reusable tags.
 - Tracks manual usages with optional Home Assistant or external links.
-- Detects likely usage in integrations, dashboards, automations, scripts, and Lovelace resources.
+- Detects likely usage in integrations, dashboards, automations, scripts, scenes, blueprints,
+  themes, and Lovelace resources when Home Assistant exposes the source.
 - Records every review and highlights items that are overdue or have never been reviewed.
 - Searches names, repositories, notes, tags, and usage names.
 - Filters by installation, status, rating, review state, source, category, and tags.
@@ -59,7 +60,8 @@ Open **Integration Tracker** from the sidebar. The integration synchronizes at s
 
 Select a row to edit tracking data, manage known usages, inspect detected usage
 candidates, open the repository, or mark the item as reviewed. Detected candidates
-can be confirmed, ignored, or converted into manual usages. Set the global review
+can be confirmed, ignored, or converted into manual usages. Use **Refresh usages**
+for one item or filter the registry by usage source, state, and confidence. Set the global review
 interval from the integration's **Configure** action in **Settings → Devices &
 services**. The default is 90 days.
 

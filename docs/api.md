@@ -11,6 +11,7 @@ All Integration Tracker WebSocket commands require an authenticated Home Assista
 | `integration_tracker/usage/update` | Edit a usage | add fields plus `usage_id` |
 | `integration_tracker/usage/remove` | Remove a usage | `item_id`, `usage_id` |
 | `integration_tracker/usage/detect` | Run automatic usage detection | none |
+| `integration_tracker/usage/refresh` | Refresh detections and return one item | `item_id` |
 | `integration_tracker/usage/confirm` | Confirm a detected usage | `item_id`, `usage_id` |
 | `integration_tracker/usage/ignore` | Ignore a detected usage | `item_id`, `usage_id` |
 | `integration_tracker/usage/convert` | Convert a detected usage to manual | `item_id`, `usage_id` |

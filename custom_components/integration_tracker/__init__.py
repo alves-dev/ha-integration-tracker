@@ -73,6 +73,11 @@ class IntegrationTrackerRuntime:
         counts = {"created": 0, "updated": 0, "stale": 0}
         try:
             snapshots = await async_detect_all(self.hass, self.registry.list_items())
+            errors = [
+                f"{snapshot.detector}: {snapshot.error}"
+                for snapshot in snapshots
+                if snapshot.error
+            ]
             for snapshot in snapshots:
                 if not snapshot.available:
                     continue
@@ -81,11 +86,11 @@ class IntegrationTrackerRuntime:
                 )
                 for key, value in result.items():
                     counts[key] += value
+            self.usage_detection_error = "; ".join(errors) if errors else None
         except Exception as err:
             self.usage_detection_error = str(err)
             _LOGGER.warning("Automatic usage detection failed: %s", err)
             raise
-        self.usage_detection_error = None
         return counts
 
     def async_update_repairs(self) -> None:

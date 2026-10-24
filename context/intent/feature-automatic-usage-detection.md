@@ -38,5 +38,5 @@ ou remover um repositório.
 ## Status
 
 - **Created**: 2026-10-23 (Phase: Intent)
-- **Status**: In progress (MVP implemented; device/area/event/blueprint/scene evidence is
-  available when exposed by Home Assistant; themes and deeper indirect analysis remain)
+- **Status**: In progress (MVP implemented; device/area/event/blueprint/scene/theme evidence is
+  available when exposed by Home Assistant; deeper indirect analysis remains)

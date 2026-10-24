@@ -59,6 +59,7 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
         websocket_update_settings,
         websocket_sync,
         websocket_detect_usages,
+        websocket_refresh_usage,
         websocket_confirm_usage,
         websocket_ignore_usage,
         websocket_convert_usage,
@@ -316,6 +317,26 @@ async def websocket_detect_usages(hass, connection, msg) -> None:
         runtime = _runtime(hass)
         counts = await runtime.async_detect_usages()
         connection.send_result(msg["id"], {"counts": counts})
+    except Exception as err:
+        _send_domain_error(connection, msg, err)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{WS_PREFIX}/usage/refresh",
+        vol.Required("item_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_refresh_usage(hass, connection, msg) -> None:
+    """Refresh automatic usages and return one tracked item."""
+    try:
+        runtime = _runtime(hass)
+        await runtime.async_detect_usages()
+        connection.send_result(
+            msg["id"], runtime.registry.get_item(msg["item_id"]).to_dict(_interval(runtime))
+        )
     except Exception as err:
         _send_domain_error(connection, msg, err)
 

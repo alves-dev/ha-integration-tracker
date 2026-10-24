@@ -3,8 +3,9 @@
 ## Status
 
 Em implementação. O MVP funcional cobre integrações configuradas, dashboards
-Lovelace armazenados, recursos, automações e scripts, com referências estruturais
-de entidades, serviços, dispositivos, áreas, eventos e blueprints.
+Lovelace armazenados, recursos, automações, scripts, cenas, blueprints instalados
+e temas expostos pelo frontend, com referências estruturais de entidades, serviços,
+dispositivos, áreas e eventos.
 
 ## Problema
 
@@ -31,7 +32,6 @@ sem tratar uma referência incerta como uma associação confirmada.
 
 ### Posterior ao MVP
 
-- temas;
 - Python scripts e templates com associações indiretas;
 - análise de dependências entre automações e scripts;
 - relatórios ou sensores de usos obsoletos.
@@ -205,12 +205,12 @@ deve criar um agendador independente sem necessidade comprovada.
 
 ### Fase 0 — Contratos e decisão
 
-- [ ] Confirmar os campos finais de `Usage`.
-- [ ] Definir a política para candidatos ignorados e usos obsoletos.
-- [ ] Definir os tipos de uso suportados no MVP.
-- [ ] Definir as fontes oficiais para dashboards UI, dashboards YAML,
+- [x] Confirmar os campos finais de `Usage`.
+- [x] Definir a política para candidatos ignorados e usos obsoletos.
+- [x] Definir os tipos de uso suportados no MVP.
+- [x] Definir as fontes oficiais para dashboards UI, dashboards YAML,
       automações e scripts.
-- [ ] Registrar a decisão arquitetural antes de alterar o código.
+- [x] Registrar a decisão arquitetural antes de alterar o código.
 
 ### Fase 1 — Modelo e registry
 
@@ -226,7 +226,7 @@ deve criar um agendador independente sem necessidade comprovada.
 
 - [x] Extrair fingerprints de `ProviderItem` e das integrações carregadas.
 - [x] Mapear domínios, serviços e entidades.
-- [ ] Mapear dispositivos e áreas.
+- [x] Mapear dispositivos e áreas.
 - [x] Implementar associação de alta confiança.
 - [x] Implementar classificação média/baixa sem confirmação automática.
 - [x] Criar testes com integrações Core e customizadas.
@@ -248,36 +248,36 @@ deve criar um agendador independente sem necessidade comprovada.
 - [x] Implementar leitura dos scripts da UI.
 - [x] Implementar leitura dos scripts YAML.
 - [x] Extrair entidades e serviços.
-- [ ] Extrair dispositivos, áreas e eventos.
+- [x] Extrair dispositivos, áreas e eventos.
 - [ ] Detectar chamadas entre automações e scripts como dependências próprias.
 - [x] Criar testes para estruturas aninhadas e ações múltiplas.
 
 ### Fase 5 — Coordinator e ciclo de sincronização
 
-- [ ] Criar o coordinator dos detectores.
-- [ ] Diferenciar snapshot vazio de fonte indisponível.
-- [ ] Integrar a reconciliação após sincronização bem-sucedida.
-- [ ] Adicionar execução manual pelo WebSocket.
-- [ ] Garantir que falha de um detector não corrompa os demais resultados.
+- [x] Criar o coordinator dos detectores.
+- [x] Diferenciar snapshot vazio de fonte indisponível.
+- [x] Integrar a reconciliação após sincronização bem-sucedida.
+- [x] Adicionar execução manual pelo WebSocket.
+- [x] Garantir que falha de um detector não corrompa os demais resultados.
 - [ ] Registrar logs úteis sem expor conteúdo sensível das configurações.
 
 ### Fase 6 — WebSocket e painel
 
-- [ ] Adicionar schemas e handlers para candidatos detectados.
-- [ ] Adicionar confirmação, ignorar e conversão para manual.
-- [ ] Exibir confiança, evidência, estado obsoleto e última detecção.
-- [ ] Adicionar estado de carregamento e erros parciais.
-- [ ] Adicionar filtro por origem e estado do uso.
-- [ ] Testar acesso somente de administradores.
+- [x] Adicionar schemas e handlers para candidatos detectados.
+- [x] Adicionar confirmação, ignorar e conversão para manual.
+- [x] Exibir confiança, evidência, estado obsoleto e última detecção.
+- [x] Adicionar estado de carregamento e erros parciais.
+- [x] Adicionar filtro por origem, estado e confiança do uso.
+- [x] Testar acesso somente de administradores.
 
 ### Fase 7 — Qualidade e documentação
 
-- [ ] Atualizar `docs/api.md`.
-- [ ] Atualizar `docs/architecture.md` após a implementação.
-- [ ] Atualizar README com o comportamento da feature.
-- [ ] Adicionar testes de regressão para usos manuais.
-- [ ] Executar Ruff, pytest, cobertura e validação estrutural.
-- [ ] Atualizar intent, decisão e changelog do Context Mesh.
+- [x] Atualizar `docs/api.md`.
+- [x] Atualizar `docs/architecture.md` após a implementação.
+- [x] Atualizar README com o comportamento da feature.
+- [x] Adicionar testes de regressão para usos manuais.
+- [x] Executar Ruff, pytest, cobertura e validação estrutural.
+- [x] Atualizar intent, decisão e changelog do Context Mesh.
 
 ## Critérios de aceite
 

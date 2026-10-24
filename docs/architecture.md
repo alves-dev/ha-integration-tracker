@@ -13,9 +13,10 @@ Community-store provider ──┴→ provider snapshots → source-neutral regi
 
 Automatic usage detection runs after a successful synchronization or through an
 administrator WebSocket command. It reads Home Assistant configuration/state,
-normalizes references from integrations, dashboards, automations, scripts, and
-Lovelace resources, then reconciles only detected usage records in the registry.
-Unavailable sources are non-destructive.
+normalizes references from integrations, dashboards, automations, scripts, scenes,
+blueprints, themes, and Lovelace resources, then reconciles only detected usage
+records in the registry. Individual detector failures are reported without
+invalidating successful snapshots from other sources.
 
 ## Components
 

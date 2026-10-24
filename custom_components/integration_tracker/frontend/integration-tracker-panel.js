@@ -19,6 +19,8 @@ const USAGE_TYPES = [
   "script",
   "integration",
   "resource",
+  "theme",
+  "blueprint",
   "other",
 ];
 
@@ -29,6 +31,8 @@ const USAGE_ICONS = {
   script: "mdi:script-text",
   integration: "mdi:puzzle",
   resource: "mdi:script-text-outline",
+  theme: "mdi:palette-outline",
+  blueprint: "mdi:file-tree",
   other: "mdi:link",
 };
 
@@ -65,6 +69,9 @@ class IntegrationTrackerPanel extends HTMLElement {
       store: "all",
       category: "all",
       tags: "",
+      usageSource: "all",
+      usageState: "all",
+      usageConfidence: "all",
       sort: "name",
       direction: "asc",
     };
@@ -176,6 +183,16 @@ class IntegrationTrackerPanel extends HTMLElement {
       if (this._filters.review !== "all" && item.review_state !== this._filters.review) return false;
       if (this._filters.store !== "all" && this._storeKey(item) !== this._filters.store) return false;
       if (this._filters.category !== "all" && item.category !== this._filters.category) return false;
+      const usages = item.usages || [];
+      if (this._filters.usageSource !== "all" && !usages.some((usage) => usage.source === this._filters.usageSource)) return false;
+      if (this._filters.usageConfidence !== "all" && !usages.some((usage) => usage.confidence === this._filters.usageConfidence)) return false;
+      if (this._filters.usageState !== "all" && !usages.some((usage) => {
+        if (this._filters.usageState === "candidate") return usage.source === "detected" && !usage.confirmed && !usage.ignored && !usage.stale;
+        if (this._filters.usageState === "confirmed") return usage.confirmed && !usage.stale;
+        if (this._filters.usageState === "ignored") return usage.ignored;
+        if (this._filters.usageState === "stale") return usage.stale;
+        return false;
+      })) return false;
       const itemTags = item.tags.map((tag) => tag.toLocaleLowerCase());
       return wantedTags.every((tag) => itemTags.includes(tag));
     });
@@ -276,6 +293,8 @@ class IntegrationTrackerPanel extends HTMLElement {
       await this._sync(actionTarget);
     } else if (action === "detect-usages") {
       await this._detectUsages(actionTarget);
+    } else if (action === "refresh-usages") {
+      await this._refreshUsages(actionTarget);
     } else if (action === "review") {
       await this._review(actionTarget);
     } else if (action === "rating") {
@@ -347,6 +366,17 @@ class IntegrationTrackerPanel extends HTMLElement {
     const ok = await this._runMutation(button, { type: "integration_tracker/usage/detect" });
     if (button.isConnected) button.textContent = previousText;
     if (ok) this._announce("Usage detection completed");
+  }
+
+  async _refreshUsages(button) {
+    const previousText = button.textContent;
+    button.textContent = "Refreshing…";
+    const ok = await this._runMutation(button, {
+      type: "integration_tracker/usage/refresh",
+      item_id: this._selectedId,
+    });
+    if (button.isConnected) button.textContent = previousText;
+    if (ok) this._announce("Usages refreshed");
   }
 
   async _moderateUsage(button, action) {
@@ -539,6 +569,9 @@ class IntegrationTrackerPanel extends HTMLElement {
           ${option("all", "All", f.category)}${this._data.categories.map((value) => option(value, value, f.category)).join("")}
         </select></label>
         <label><span>Tags</span><input data-filter="tags" list="filter-tags" value="${escapeHtml(f.tags)}" placeholder="dashboard, important"><datalist id="filter-tags">${this._data.tags.map((tag) => `<option value="${escapeHtml(tag)}"></option>`).join("")}</datalist></label>
+        <label><span>Usage source</span><select data-filter="usageSource">${option("all", "All", f.usageSource)}${option("manual", "Manual", f.usageSource)}${option("detected", "Detected", f.usageSource)}</select></label>
+        <label><span>Usage state</span><select data-filter="usageState">${option("all", "All", f.usageState)}${option("candidate", "Candidate", f.usageState)}${option("confirmed", "Confirmed", f.usageState)}${option("ignored", "Ignored", f.usageState)}${option("stale", "Stale", f.usageState)}</select></label>
+        <label><span>Confidence</span><select data-filter="usageConfidence">${option("all", "All", f.usageConfidence)}${option("high", "High", f.usageConfidence)}${option("medium", "Medium", f.usageConfidence)}${option("low", "Low", f.usageConfidence)}</select></label>
         <label><span>Sort</span><select data-filter="sort">
           ${option("name", "Name", f.sort)}${option("rating", "Rating", f.sort)}${option("status", "Status", f.sort)}${option("last_reviewed", "Last reviewed", f.sort)}${option("discovered", "Discovered", f.sort)}${option("usages", "Usage count", f.sort)}${option("installed", "Installation", f.sort)}
         </select></label>
@@ -624,7 +657,7 @@ class IntegrationTrackerPanel extends HTMLElement {
             <button class="primary" type="submit" ${this._saving ? "disabled" : ""}>Save details</button>
           </form>
           <section class="usages">
-            <div class="section-heading"><div><h3>Known usages</h3><p>${item.usages.length} registered</p></div></div>
+            <div class="section-heading"><div><h3>Known usages</h3><p>${item.usages.length} registered</p></div><button class="secondary" data-action="refresh-usages" ${this._saving ? "disabled" : ""}>Refresh usages</button></div>
             ${item.usages.length ? `<ul>${item.usages.map((usage) => this._renderUsage(usage)).join("")}</ul>` : `<div class="empty compact">No known usage has been registered.</div>`}
             ${this._renderUsageForm(editing)}
           </section>

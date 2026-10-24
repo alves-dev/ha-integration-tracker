@@ -114,6 +114,38 @@ def test_automation_url_falls_back_to_entity_object_id():
     ) == "/config/automation/edit/example"
 
 
+def test_theme_snapshot_matches_tracked_theme_and_marks_active_theme():
+    item = tracked_item(category="theme")
+    item.provider_data = {"domain": None}
+    hass = SimpleNamespace(
+        data={
+            "frontend_themes": {"Example": {"primary-color": "#123456"}},
+            "frontend_default_theme": "Example",
+        }
+    )
+
+    snapshot = coordinator._theme_snapshot(hass, [item])
+
+    assert snapshot.available is True
+    assert snapshot.detections[0].type == "theme"
+    assert snapshot.detections[0].evidence["active"] is True
+
+
+def test_blueprint_snapshot_matches_repository_path(tmp_path):
+    blueprint = tmp_path / "blueprints" / "automation" / "owner" / "example" / "notify.yaml"
+    blueprint.parent.mkdir(parents=True)
+    blueprint.write_text("blueprint: {}", encoding="utf-8")
+    hass = SimpleNamespace(
+        config=SimpleNamespace(path=lambda name: str(tmp_path / name)),
+    )
+
+    snapshot = coordinator._blueprint_snapshot(hass, [tracked_item()])
+
+    assert snapshot.available is True
+    assert snapshot.detections[0].type == "blueprint"
+    assert snapshot.detections[0].evidence["path"] == "automation/owner/example/notify.yaml"
+
+
 def test_reference_domains_resolves_area_without_area_entry_collections(monkeypatch):
     config_entry = SimpleNamespace(entry_id="entry-1", domain="example")
     entity = SimpleNamespace(

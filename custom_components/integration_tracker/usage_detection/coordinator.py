@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from homeassistant.components import automation, scene, script
@@ -15,6 +16,7 @@ from homeassistant.helpers.storage import Store
 from ..models import TrackedItem
 from .detectors import (
     ComponentRecord,
+    _item_tokens,
     detect_component_usages,
     detect_configured_integrations,
     detect_dashboard_usages,
@@ -29,26 +31,41 @@ class DetectionSnapshot:
     detector: str
     available: bool
     detections: list[DetectedUsage]
+    error: str | None = None
 
 
 async def async_detect_all(
     hass: HomeAssistant, items: Sequence[TrackedItem]
 ) -> list[DetectionSnapshot]:
     """Collect all currently supported detector snapshots."""
-    return [
-        DetectionSnapshot(
+    snapshots: list[DetectionSnapshot] = []
+    sync_detectors = (
+        ("integrations", lambda: DetectionSnapshot(
             "integrations",
             True,
             detect_configured_integrations(
                 items,
                 {domain.casefold() for domain in hass.config_entries.async_domains()},
             ),
-        ),
-        _component_snapshot(hass, items, automation.DATA_COMPONENT, "automations"),
-        _component_snapshot(hass, items, script.DOMAIN, "scripts"),
-        _component_snapshot(hass, items, scene.DATA_COMPONENT, "scenes"),
-        await _dashboard_snapshot(hass, items),
-    ]
+        )),
+        ("automations", lambda: _component_snapshot(
+            hass, items, automation.DATA_COMPONENT, "automations"
+        )),
+        ("scripts", lambda: _component_snapshot(hass, items, script.DOMAIN, "scripts")),
+        ("scenes", lambda: _component_snapshot(hass, items, scene.DATA_COMPONENT, "scenes")),
+        ("themes", lambda: _theme_snapshot(hass, items)),
+        ("blueprints", lambda: _blueprint_snapshot(hass, items)),
+    )
+    for detector, collect in sync_detectors:
+        try:
+            snapshots.append(collect())
+        except Exception as err:
+            snapshots.append(DetectionSnapshot(detector, False, [], str(err)))
+    try:
+        snapshots.append(await _dashboard_snapshot(hass, items))
+    except Exception as err:
+        snapshots.append(DetectionSnapshot("dashboards", False, [], str(err)))
+    return snapshots
 
 
 def _component_snapshot(
@@ -117,6 +134,78 @@ def _reference_domains(hass: HomeAssistant) -> dict[str, set[str]]:
             for domain in domains.get(device.id.casefold(), set()):
                 add(area_id, domain)
     return domains
+
+
+def _theme_snapshot(
+    hass: HomeAssistant, items: Sequence[TrackedItem]
+) -> DetectionSnapshot:
+    """Detect tracked themes exposed by Home Assistant frontend storage."""
+    themes = hass.data.get("frontend_themes")
+    if not isinstance(themes, Mapping):
+        return DetectionSnapshot("themes", False, [])
+    defaults = {
+        str(hass.data.get("frontend_default_theme") or "default").casefold(),
+        str(hass.data.get("frontend_default_dark_theme") or "").casefold(),
+    }
+    detections: list[DetectedUsage] = []
+    for item in items:
+        if not item.category or item.category.casefold() != "theme":
+            continue
+        tokens = _item_tokens(item)
+        for theme_name, theme_config in themes.items():
+            name = str(theme_name)
+            name_lower = name.casefold()
+            serialized = str(theme_config).casefold()
+            if (
+                name_lower not in tokens
+                and not any(token in name_lower for token in tokens)
+                and not any(token in serialized for token in tokens)
+            ):
+                continue
+            detections.append(
+                DetectedUsage(
+                    item_id=item.id,
+                    name=f"Theme: {name}",
+                    type="theme",
+                    detection_key=f"themes:theme:{name.casefold()}:{item.id}",
+                    detector="themes",
+                    confidence="high" if name.casefold() in defaults else "medium",
+                    evidence={
+                        "theme": name,
+                        "active": name.casefold() in defaults,
+                        "source": "frontend_themes",
+                    },
+                )
+            )
+    return DetectionSnapshot("themes", True, detections)
+
+
+def _blueprint_snapshot(
+    hass: HomeAssistant, items: Sequence[TrackedItem]
+) -> DetectionSnapshot:
+    """Detect blueprints whose installed path identifies a tracked repository."""
+    blueprints_root = Path(hass.config.path("blueprints"))
+    if not blueprints_root.is_dir():
+        return DetectionSnapshot("blueprints", False, [])
+    detections: list[DetectedUsage] = []
+    for path in blueprints_root.rglob("*.y*ml"):
+        path_text = path.relative_to(blueprints_root).as_posix().casefold()
+        for item in items:
+            if not any(token in path_text for token in _item_tokens(item)):
+                continue
+            detections.append(
+                DetectedUsage(
+                    item_id=item.id,
+                    name=f"Blueprint: {path.stem}",
+                    type="blueprint",
+                    detection_key=f"blueprints:{path_text}:{item.id}",
+                    detector="blueprints",
+                    confidence="high",
+                    url="/config/automation/blueprint",
+                    evidence={"path": path_text, "source": "blueprints"},
+                )
+            )
+    return DetectionSnapshot("blueprints", True, detections)
 
 
 def _dashboard_view_records(

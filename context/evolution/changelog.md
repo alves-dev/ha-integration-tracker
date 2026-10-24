@@ -52,6 +52,8 @@
   links are updated instead of remaining as stale candidates.
 - Fixed automation usage links to use the automation configuration ID, such as
   `/config/automation/edit/1780921324759`.
+- Added per-item usage refresh, partial detector error reporting, blueprint/theme
+  snapshots, and usage source/state/confidence filters.
 
 ## 2026.10.0
 
