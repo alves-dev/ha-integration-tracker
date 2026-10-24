@@ -45,6 +45,8 @@
 - Added stored-dashboard fallback loading and visible detection evidence in the panel.
 - Added structural reference detection for devices, areas, events, and blueprints.
 - Added scene component collection when Home Assistant exposes scene configurations.
+- Fixed area reference resolution for Home Assistant versions where `AreaEntry`
+  does not expose device or entity collections.
 
 ## 2026.10.0
 

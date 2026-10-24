@@ -9,7 +9,7 @@ from typing import Any
 from homeassistant.components import automation, scene, script
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import area_registry, device_registry, entity_registry
+from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.storage import Store
 
 from ..models import TrackedItem
@@ -99,14 +99,19 @@ def _reference_domains(hass: HomeAssistant) -> dict[str, set[str]]:
         for entry_id in device.config_entries:
             add(device.id, config_entries.get(entry_id))
 
-    area_registry_data = area_registry.async_get(hass)
-    for area in area_registry_data.async_list_areas():
-        for device_id in area.device_ids:
-            for domain in domains.get(device_id.casefold(), set()):
-                add(area.id, domain)
-        for entity_id in area.entities:
-            for domain in domains.get(entity_id.casefold(), set()):
-                add(area.id, domain)
+    for entity in entity_registry_data.entities.values():
+        if entity.area_id:
+            for domain in domains.get(entity.entity_id.casefold(), set()):
+                add(entity.area_id, domain)
+            if entity.device_id:
+                for domain in domains.get(entity.device_id.casefold(), set()):
+                    add(entity.area_id, domain)
+
+    for device in device_registry_data.devices.values():
+        area_id = getattr(device, "area_id", None)
+        if area_id:
+            for domain in domains.get(device.id.casefold(), set()):
+                add(area_id, domain)
     return domains
 
 

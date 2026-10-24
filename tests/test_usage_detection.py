@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from custom_components.integration_tracker.models import ProviderItem, TrackedItem
@@ -96,6 +98,39 @@ def test_component_detector_matches_registry_resolved_device_reference():
     assert len(detections) == 1
     assert detections[0].confidence == "high"
     assert detections[0].evidence["reference_type"] == "device"
+
+
+def test_reference_domains_resolves_area_without_area_entry_collections(monkeypatch):
+    config_entry = SimpleNamespace(entry_id="entry-1", domain="example")
+    entity = SimpleNamespace(
+        entity_id="example.sensor",
+        config_entry_id="entry-1",
+        device_id="device-1",
+        area_id="area-1",
+    )
+    device = SimpleNamespace(
+        id="device-1",
+        config_entries={"entry-1"},
+        area_id="area-1",
+    )
+
+    monkeypatch.setattr(
+        coordinator.entity_registry,
+        "async_get",
+        lambda _hass: SimpleNamespace(entities={"entity": entity}),
+    )
+    monkeypatch.setattr(
+        coordinator.device_registry,
+        "async_get",
+        lambda _hass: SimpleNamespace(devices={"device": device}),
+    )
+    hass = SimpleNamespace(
+        config_entries=SimpleNamespace(async_entries=lambda: [config_entry])
+    )
+
+    domains = coordinator._reference_domains(hass)
+
+    assert domains["area-1"] == {"example"}
 
 
 def test_component_detector_matches_domain_and_preserves_evidence():
