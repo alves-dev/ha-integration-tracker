@@ -32,8 +32,12 @@ sem tratar uma referência incerta como uma associação confirmada.
 
 ### Posterior ao MVP
 
-- Python scripts e templates com associações indiretas;
+- **Não implementado:** Python scripts, templates e associações indiretas;
 - relatórios ou sensores de usos obsoletos.
+
+O Integration Tracker não analisa atualmente templates Jinja, Python scripts ou
+associações indiretas entre arquivos e repositórios. Essa capacidade permanece
+fora da implementação atual e pode ser adicionada somente em uma fase futura.
 
 ## Modelo de dados proposto
 

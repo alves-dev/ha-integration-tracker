@@ -58,6 +58,8 @@ as automações ou scripts que o utilizam.
 
 ### Python scripts, templates e extensões
 
+**Status: não implementado.**
+
 Detectar chamadas aos serviços, entidades ou ações fornecidos por esses
 repositórios. Quando não for possível associar diretamente o arquivo ao
 repositório, o resultado deve ser classificado com confiança média ou baixa.

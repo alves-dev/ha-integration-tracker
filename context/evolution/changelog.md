@@ -63,6 +63,8 @@
   names against repository owner and name tokens.
 - Removed automation-to-script dependency analysis from the Integration Tracker
   plan because it is covered by another integration in the user's environment.
+- Documented explicitly that Python scripts, templates, and indirect associations
+  are not implemented in the current release.
 
 ## 2026.10.0
 

@@ -39,4 +39,5 @@ ou remover um repositório.
 
 - **Created**: 2026-10-23 (Phase: Intent)
 - **Status**: In progress (MVP implemented; device/area/event/blueprint/scene/theme evidence is
-  available when exposed by Home Assistant; deeper indirect analysis remains)
+  available when exposed by Home Assistant; Python scripts, templates, and indirect
+  associations are not implemented)
