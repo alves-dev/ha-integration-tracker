@@ -106,34 +106,57 @@ def _reference_domains(hass: HomeAssistant) -> dict[str, set[str]]:
     }
     entity_registry_data = entity_registry.async_get(hass)
     device_registry_data = device_registry.async_get(hass)
+    _add_entity_domains(domains, config_entries, entity_registry_data.entities.values())
+    _add_device_domains(domains, config_entries, device_registry_data.devices.values())
+    _add_entity_area_domains(domains, entity_registry_data.entities.values())
+    _add_device_area_domains(domains, device_registry_data.devices.values())
+    return domains
 
-    def add(reference: str, domain: str | None) -> None:
-        if domain:
-            domains.setdefault(reference.casefold(), set()).add(domain.casefold())
 
-    for entity in entity_registry_data.entities.values():
-        add(entity.entity_id, config_entries.get(entity.config_entry_id))
+def _add_domain(domains: dict[str, set[str]], reference: str, domain: str | None) -> None:
+    """Associate a normalized reference with a normalized integration domain."""
+    if domain:
+        domains.setdefault(reference.casefold(), set()).add(domain.casefold())
+
+
+def _add_entity_domains(domains, config_entries, entities) -> None:
+    """Add entity and device references from entity registry entries."""
+    for entity in entities:
+        domain = config_entries.get(entity.config_entry_id)
+        _add_domain(domains, entity.entity_id, domain)
         if entity.device_id:
-            add(entity.device_id, config_entries.get(entity.config_entry_id))
+            _add_domain(domains, entity.device_id, domain)
 
-    for device in device_registry_data.devices.values():
+
+def _add_device_domains(domains, config_entries, devices) -> None:
+    """Add device references from device registry entries."""
+    for device in devices:
         for entry_id in device.config_entries:
-            add(device.id, config_entries.get(entry_id))
+            _add_domain(domains, device.id, config_entries.get(entry_id))
 
-    for entity in entity_registry_data.entities.values():
-        if entity.area_id:
-            for domain in domains.get(entity.entity_id.casefold(), set()):
-                add(entity.area_id, domain)
-            if entity.device_id:
-                for domain in domains.get(entity.device_id.casefold(), set()):
-                    add(entity.area_id, domain)
 
-    for device in device_registry_data.devices.values():
+def _add_entity_area_domains(domains, entities) -> None:
+    """Propagate entity and device domains to their areas."""
+    for entity in entities:
+        if not entity.area_id:
+            continue
+        _propagate_area_domains(domains, entity.area_id, entity.entity_id)
+        if entity.device_id:
+            _propagate_area_domains(domains, entity.area_id, entity.device_id)
+
+
+def _add_device_area_domains(domains, devices) -> None:
+    """Propagate device domains to device areas."""
+    for device in devices:
         area_id = getattr(device, "area_id", None)
         if area_id:
-            for domain in domains.get(device.id.casefold(), set()):
-                add(area_id, domain)
-    return domains
+            _propagate_area_domains(domains, area_id, device.id)
+
+
+def _propagate_area_domains(domains, area_id: str, source: str) -> None:
+    """Copy domains associated with an entity or device onto its area."""
+    for domain in domains.get(source.casefold(), set()):
+        _add_domain(domains, area_id, domain)
 
 
 def _theme_snapshot(
@@ -149,35 +172,46 @@ def _theme_snapshot(
     }
     detections: list[DetectedUsage] = []
     for item in items:
-        if not item.category or item.category.casefold() != "theme":
-            continue
-        tokens = _item_tokens(item)
-        for theme_name, theme_config in themes.items():
-            name = str(theme_name)
-            name_lower = name.casefold()
-            serialized = str(theme_config).casefold()
-            if (
-                name_lower not in tokens
-                and not any(token in name_lower for token in tokens)
-                and not any(token in serialized for token in tokens)
-            ):
-                continue
-            detections.append(
-                DetectedUsage(
-                    item_id=item.id,
-                    name=f"Theme: {name}",
-                    type="theme",
-                    detection_key=f"themes:theme:{name.casefold()}:{item.id}",
-                    detector="themes",
-                    confidence="high" if name.casefold() in defaults else "medium",
-                    evidence={
-                        "theme": name,
-                        "active": name.casefold() in defaults,
-                        "source": "frontend_themes",
-                    },
-                )
-            )
+        if item.category and item.category.casefold() == "theme":
+            detections.extend(_theme_detections(item, themes, defaults))
     return DetectionSnapshot("themes", True, detections)
+
+
+def _theme_detections(item, themes, defaults) -> list[DetectedUsage]:
+    """Return theme matches for one tracked item."""
+    tokens = _item_tokens(item)
+    detections = []
+    for theme_name, theme_config in themes.items():
+        name = str(theme_name)
+        name_lower = name.casefold()
+        serialized = str(theme_config).casefold()
+        if not _theme_matches(name_lower, serialized, tokens):
+            continue
+        detections.append(
+            DetectedUsage(
+                item_id=item.id,
+                name=f"Theme: {name}",
+                type="theme",
+                detection_key=f"themes:theme:{name_lower}:{item.id}",
+                detector="themes",
+                confidence="high" if name_lower in defaults else "medium",
+                evidence={
+                    "theme": name,
+                    "active": name_lower in defaults,
+                    "source": "frontend_themes",
+                },
+            )
+        )
+    return detections
+
+
+def _theme_matches(name: str, serialized: str, tokens: set[str]) -> bool:
+    """Return whether a theme name or configuration contains an item token."""
+    return (
+        name in tokens
+        or any(token in name for token in tokens)
+        or any(token in serialized for token in tokens)
+    )
 
 
 def _blueprint_snapshot(
@@ -237,43 +271,11 @@ async def _dashboard_snapshot(
 ) -> DetectionSnapshot:
     """Collect stored/YAML dashboards and Lovelace resources."""
     lovelace = hass.data.get("lovelace")
-    records: list[ComponentRecord] = []
-    loaded_sources = 0
     if isinstance(lovelace, dict) and "dashboards" in lovelace:
-        for url_path, dashboard in lovelace["dashboards"].items():
-            try:
-                config = await dashboard.async_load(False)
-            except (HomeAssistantError, KeyError, TypeError, ValueError):
-                continue
-            dashboard_path = url_path or "lovelace"
-            records.extend(
-                _dashboard_view_records(
-                    f"dashboard:{dashboard_path}",
-                    str(config.get("title") or dashboard_path),
-                    f"/{dashboard_path}" if url_path else "/lovelace",
-                    config,
-                )
-            )
-            loaded_sources += 1
-
-        try:
-            resources = lovelace.get("resources")
-            if resources is not None:
-                if not getattr(resources, "loaded", True):
-                    await resources.async_load()
-                for resource in resources.async_items() or []:
-                    url = str(resource.get("url") or "")
-                    records.append(
-                        ComponentRecord(
-                            identifier=f"resource:{url}",
-                            name=f"Lovelace resource: {url}",
-                            url=url,
-                            config=resource,
-                        )
-                    )
-                loaded_sources += 1
-        except (HomeAssistantError, KeyError, TypeError, ValueError):
-            pass
+        records, loaded_sources = await _load_exposed_dashboards(lovelace)
+        records.extend(await _load_exposed_resources(lovelace))
+    else:
+        records, loaded_sources = [], 0
 
     if not records:
         records, loaded_sources = await _async_load_storage_dashboards(hass)
@@ -285,6 +287,49 @@ async def _dashboard_snapshot(
     )
 
 
+async def _load_exposed_dashboards(lovelace: dict[str, Any]) -> tuple[list[ComponentRecord], int]:
+    """Load dashboards exposed by the active Lovelace runtime."""
+    records: list[ComponentRecord] = []
+    loaded_sources = 0
+    for url_path, dashboard in lovelace["dashboards"].items():
+        try:
+            config = await dashboard.async_load(False)
+        except (HomeAssistantError, KeyError, TypeError, ValueError):
+            continue
+        dashboard_path = url_path or "lovelace"
+        records.extend(
+            _dashboard_view_records(
+                f"dashboard:{dashboard_path}",
+                str(config.get("title") or dashboard_path),
+                f"/{dashboard_path}" if url_path else "/lovelace",
+                config,
+            )
+        )
+        loaded_sources += 1
+    return records, loaded_sources
+
+
+async def _load_exposed_resources(lovelace: dict[str, Any]) -> list[ComponentRecord]:
+    """Load resources exposed by the active Lovelace runtime."""
+    resources = lovelace.get("resources")
+    if resources is None:
+        return []
+    try:
+        if not getattr(resources, "loaded", True):
+            await resources.async_load()
+        return [
+            ComponentRecord(
+                identifier=f"resource:{resource.get('url') or ''}",
+                name=f"Lovelace resource: {resource.get('url') or ''}",
+                url=str(resource.get("url") or ""),
+                config=resource,
+            )
+            for resource in resources.async_items() or []
+        ]
+    except (HomeAssistantError, KeyError, TypeError, ValueError):
+        return []
+
+
 async def _async_load_storage_dashboards(
     hass: HomeAssistant,
 ) -> tuple[list[ComponentRecord], int]:
@@ -292,60 +337,75 @@ async def _async_load_storage_dashboards(
     records: list[ComponentRecord] = []
     loaded_sources = 0
     try:
-        default_data = await Store(hass, 1, "lovelace").async_load()
-        if isinstance(default_data, dict) and isinstance(default_data.get("config"), dict):
-            records.extend(
-                _dashboard_view_records(
-                    "dashboard:lovelace",
-                    str(default_data["config"].get("title") or "lovelace"),
-                    "/lovelace",
-                    default_data["config"],
-                )
-            )
-            loaded_sources += 1
-
-        dashboard_data = await Store(hass, 1, "lovelace_dashboards").async_load()
-        dashboard_items = (
-            dashboard_data.get("items", []) if isinstance(dashboard_data, dict) else []
-        )
-        for dashboard in dashboard_items:
-            if not isinstance(dashboard, dict) or dashboard.get("mode") != "storage":
-                continue
-            dashboard_id = dashboard.get("id")
-            if not dashboard_id:
-                continue
-            stored = await Store(hass, 1, f"lovelace.{dashboard_id}").async_load()
-            config = stored.get("config") if isinstance(stored, dict) else None
-            if not isinstance(config, dict):
-                continue
-            url_path = str(dashboard.get("url_path") or dashboard_id)
-            records.extend(
-                _dashboard_view_records(
-                    f"dashboard:{url_path}",
-                    str(dashboard.get("title") or url_path),
-                    f"/{url_path}",
-                    config,
-                )
-            )
-            loaded_sources += 1
-
-        resources = await Store(hass, 1, "lovelace_resources").async_load()
-        for resource in (resources or {}).get("items", []) if isinstance(resources, dict) else []:
-            if not isinstance(resource, dict):
-                continue
-            url = str(resource.get("url") or "")
-            records.append(
-                ComponentRecord(
-                    identifier=f"resource:{url}",
-                    name=f"Lovelace resource: {url}",
-                    url=url,
-                    config=resource,
-                )
-            )
+        records, loaded_sources = await _load_storage_dashboard_records(hass)
+        records.extend(await _load_storage_resources(hass))
         loaded_sources += 1
     except (HomeAssistantError, KeyError, TypeError, ValueError):
         return [], 0
     return records, loaded_sources
+
+
+async def _load_storage_dashboard_records(hass: HomeAssistant) -> tuple[list[ComponentRecord], int]:
+    """Load the default and storage-mode dashboard records."""
+    records: list[ComponentRecord] = []
+    loaded_sources = 0
+    default_data = await Store(hass, 1, "lovelace").async_load()
+    default_config = default_data.get("config") if isinstance(default_data, dict) else None
+    if isinstance(default_config, dict):
+        records.extend(
+            _dashboard_view_records(
+                "dashboard:lovelace",
+                str(default_config.get("title") or "lovelace"),
+                "/lovelace",
+                default_config,
+            )
+        )
+        loaded_sources += 1
+
+    dashboard_data = await Store(hass, 1, "lovelace_dashboards").async_load()
+    dashboards = dashboard_data.get("items", []) if isinstance(dashboard_data, dict) else []
+    for dashboard in dashboards:
+        records_for_dashboard = await _load_one_storage_dashboard(hass, dashboard)
+        if records_for_dashboard:
+            records.extend(records_for_dashboard)
+            loaded_sources += 1
+    return records, loaded_sources
+
+
+async def _load_one_storage_dashboard(hass: HomeAssistant, dashboard: Any) -> list[ComponentRecord]:
+    """Load one storage-mode dashboard, if its metadata is usable."""
+    if not isinstance(dashboard, dict) or dashboard.get("mode") != "storage":
+        return []
+    dashboard_id = dashboard.get("id")
+    if not dashboard_id:
+        return []
+    stored = await Store(hass, 1, f"lovelace.{dashboard_id}").async_load()
+    config = stored.get("config") if isinstance(stored, dict) else None
+    if not isinstance(config, dict):
+        return []
+    url_path = str(dashboard.get("url_path") or dashboard_id)
+    return _dashboard_view_records(
+        f"dashboard:{url_path}",
+        str(dashboard.get("title") or url_path),
+        f"/{url_path}",
+        config,
+    )
+
+
+async def _load_storage_resources(hass: HomeAssistant) -> list[ComponentRecord]:
+    """Load Lovelace resources from storage."""
+    resources = await Store(hass, 1, "lovelace_resources").async_load()
+    items = resources.get("items", []) if isinstance(resources, dict) else []
+    return [
+        ComponentRecord(
+            identifier=f"resource:{resource.get('url') or ''}",
+            name=f"Lovelace resource: {resource.get('url') or ''}",
+            url=str(resource.get("url") or ""),
+            config=resource,
+        )
+        for resource in items
+        if isinstance(resource, dict)
+    ]
 
 
 def _entity_url(detector: str, entity_id: str, config: Any = None) -> str | None:

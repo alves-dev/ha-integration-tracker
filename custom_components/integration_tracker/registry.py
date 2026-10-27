@@ -172,71 +172,78 @@ class IntegrationRegistry:
     ) -> dict[str, int]:
         """Reconcile one complete detector snapshot without touching manual usages."""
         now = utcnow_iso()
-        for detection in detections:
-            detection.validate()
-            if detection.detector != detector:
-                raise RegistryError("Detection result belongs to another detector")
+        _validate_detections(detector, detections)
 
         async with self._lock:
-            grouped: dict[str, dict[str, DetectedUsage]] = {}
-            for detection in detections:
-                self.get_item(detection.item_id)
-                item_detections = grouped.setdefault(detection.item_id, {})
-                if detection.detection_key in item_detections:
-                    raise RegistryError(
-                        f"Duplicate detection key: {detection.detection_key}"
-                    )
-                item_detections[detection.detection_key] = detection
-
+            grouped = self._group_detections(detections)
             counts = {"created": 0, "updated": 0, "stale": 0}
             for item in self._items.values():
-                current = grouped.get(item.id, {})
-                existing = {
-                    usage.detection_key: usage
-                    for usage in item.usages
-                    if usage.source == "detected" and usage.detector == detector
-                }
-                migrated: set[str] = set()
-                for key, detection in current.items():
-                    usage = existing.get(key)
-                    if usage is None:
-                        usage = _find_legacy_dashboard_usage(
-                            existing.values(), detection, migrated
-                        )
-                        if usage is not None:
-                            migrated.add(usage.id)
-                    if usage is None:
-                        item.usages.append(
-                            Usage.from_detection(
-                                name=detection.name,
-                                usage_type=detection.type,
-                                url=detection.url,
-                                detection_key=detection.detection_key,
-                                detector=detection.detector,
-                                confidence=detection.confidence,
-                                evidence=detection.evidence,
-                                seen_at=now,
-                            )
-                        )
-                        counts["created"] += 1
-                        continue
-                    usage.name = detection.name
-                    usage.type = detection.type
-                    usage.url = detection.url
-                    usage.detection_key = detection.detection_key
-                    usage.confidence = detection.confidence
-                    usage.evidence = dict(detection.evidence)
-                    usage.last_seen_at = now
-                    usage.stale = False
-                    counts["updated"] += 1
-
-                for key, usage in existing.items():
-                    if key not in current and not usage.stale:
-                        usage.stale = True
-                        counts["stale"] += 1
+                item_counts = self._reconcile_item_usages(
+                    item, grouped.get(item.id, {}), detector, now
+                )
+                for key, value in item_counts.items():
+                    counts[key] += value
 
             await self._async_save()
             return counts
+
+    def _group_detections(
+        self, detections: list[DetectedUsage]
+    ) -> dict[str, dict[str, DetectedUsage]]:
+        """Group validated detections by tracked item and stable key."""
+        grouped: dict[str, dict[str, DetectedUsage]] = {}
+        for detection in detections:
+            self.get_item(detection.item_id)
+            item_detections = grouped.setdefault(detection.item_id, {})
+            if detection.detection_key in item_detections:
+                raise RegistryError(f"Duplicate detection key: {detection.detection_key}")
+            item_detections[detection.detection_key] = detection
+        return grouped
+
+    @staticmethod
+    def _reconcile_item_usages(
+        item: TrackedItem,
+        current: dict[str, DetectedUsage],
+        detector: str,
+        now: str,
+    ) -> dict[str, int]:
+        """Apply one detector snapshot to one item."""
+        counts = {"created": 0, "updated": 0, "stale": 0}
+        existing = {
+            usage.detection_key: usage
+            for usage in item.usages
+            if usage.source == "detected" and usage.detector == detector
+        }
+        migrated: set[str] = set()
+        for key, detection in current.items():
+            usage = existing.get(key) or _find_legacy_dashboard_usage(
+                existing.values(), detection, migrated
+            )
+            if usage is None:
+                item.usages.append(
+                    Usage.from_detection(
+                        name=detection.name,
+                        usage_type=detection.type,
+                        url=detection.url,
+                        detection_key=detection.detection_key,
+                        detector=detection.detector,
+                        confidence=detection.confidence,
+                        evidence=detection.evidence,
+                        seen_at=now,
+                    )
+                )
+                counts["created"] += 1
+                continue
+            if key not in existing:
+                migrated.add(usage.id)
+            _update_detected_usage(usage, detection, now)
+            counts["updated"] += 1
+
+        for key, usage in existing.items():
+            if key not in current and not usage.stale:
+                usage.stale = True
+                counts["stale"] += 1
+        return counts
 
     async def async_confirm_detected_usage(self, item_id: str, usage_id: str) -> Usage:
         """Confirm a detected usage without converting its origin."""
@@ -302,6 +309,26 @@ class IntegrationRegistry:
                 "metadata": self._metadata,
             }
         )
+
+
+def _validate_detections(detector: str, detections: list[DetectedUsage]) -> None:
+    """Validate detector ownership before taking the registry lock."""
+    for detection in detections:
+        detection.validate()
+        if detection.detector != detector:
+            raise RegistryError("Detection result belongs to another detector")
+
+
+def _update_detected_usage(usage: Usage, detection: DetectedUsage, now: str) -> None:
+    """Refresh provider-owned fields on an existing detected usage."""
+    usage.name = detection.name
+    usage.type = detection.type
+    usage.url = detection.url
+    usage.detection_key = detection.detection_key
+    usage.confidence = detection.confidence
+    usage.evidence = dict(detection.evidence)
+    usage.last_seen_at = now
+    usage.stale = False
 
 
 def _find_legacy_dashboard_usage(

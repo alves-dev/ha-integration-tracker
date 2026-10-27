@@ -30,8 +30,26 @@
 *This changelog documents the state when Context Mesh was added.*
 *Future changes will be tracked below.*
 
+## 2026.10.27
+
+- Migrated the local Home Assistant helpers to the shared Docker container
+  `hass-dev-homeassistant`, using `dev/deploy-to-ha.sh` and shared environment
+  documentation.
+- Updated agent and development guidance to remove the legacy host Core and PID
+  file workflow.
+- Standardized development prerelease cleanup to run daily and retain five
+  prereleases by default.
+- Synchronized `docs/local-home-assistant.md` with canonical reference version
+  `2026.10.27.1`, including the shared test inventory and UI endpoint.
+
 ## 2026.10.24
 
+- Added runtime, configuration-flow, panel, WebSocket, and detector orchestration
+  tests, raising Python coverage to 80%.
+- Refactored detector and registry orchestration helpers to reduce SonarQube
+  cognitive complexity without changing ownership or snapshot semantics.
+- Enabled `sonar.qualitygate.wait` and synchronized package metadata with version
+  `2026.10.1`.
 - Aligned the development-release cleanup workflow with the shared retention
   schedule and default of eight prereleases.
 - Updated the project intent to reflect version `2026.10.1` and automatic usage

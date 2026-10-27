@@ -87,6 +87,32 @@ def test_iter_config_references_extracts_dashboard_theme():
     ]
 
 
+@pytest.mark.asyncio
+async def test_async_detect_all_keeps_partial_detector_errors(monkeypatch):
+    """One detector failure does not discard snapshots from the others."""
+    hass = SimpleNamespace(
+        config_entries=SimpleNamespace(async_domains=lambda: {"example"}),
+    )
+    available = coordinator.DetectionSnapshot("stub", True, [])
+    failed = RuntimeError("dashboard source unavailable")
+    monkeypatch.setattr(coordinator, "detect_configured_integrations", lambda *_args: [])
+    monkeypatch.setattr(coordinator, "_component_snapshot", lambda *_args: available)
+    monkeypatch.setattr(coordinator, "_theme_snapshot", lambda *_args: available)
+    monkeypatch.setattr(coordinator, "_blueprint_snapshot", lambda *_args: available)
+
+    async def fail_dashboard(*_args):
+        raise failed
+
+    monkeypatch.setattr(coordinator, "_dashboard_snapshot", fail_dashboard)
+
+    snapshots = await coordinator.async_detect_all(hass, [tracked_item()])
+
+    assert len(snapshots) == 7
+    assert sum(snapshot.available for snapshot in snapshots) == 6
+    assert snapshots[-1].detector == "dashboards"
+    assert snapshots[-1].error == str(failed)
+
+
 def test_dashboard_detector_matches_catppuccin_theme_name():
     item = TrackedItem.from_provider(
         ProviderItem(

@@ -9,7 +9,7 @@ This repository contains the `integration_tracker` Home Assistant custom integra
 - Test: `uv run pytest --cov=custom_components/integration_tracker --cov-report=term`
 - Validate integration structure: `python3 /home/alves-dev/.codex/skills/home-assistant-integration-standards/scripts/validate_integration_structure.py .`
 - Start shared Home Assistant: `dev/start-ha.sh`
-- Deploy to shared Home Assistant and restart: `dev/copy-to-core.sh`
+- Deploy to shared Home Assistant and restart: `dev/deploy-to-ha.sh`
 - Stop shared Home Assistant: `dev/stop-ha.sh`
 
 ## Code Style
@@ -81,4 +81,10 @@ root/
 
 ## Local Home Assistant Helpers
 
-The `dev/` helpers target a shared local Home Assistant instance. `dev/copy-to-core.sh` stops the shared instance, deploys `custom_components/integration_tracker`, and starts it again. Check the helper behavior before invoking it and preserve user data and unrelated worktree changes.
+The `dev/` helpers target the shared Docker container `hass-dev-homeassistant`:
+
+- `dev/start-ha.sh` starts the shared container.
+- `dev/stop-ha.sh` stops the shared container.
+- `dev/deploy-to-ha.sh` stops the container, deploys `custom_components/integration_tracker` into its mounted configuration, and starts it again.
+
+See `docs/local-home-assistant.md` for the shared environment, authentication, and test details. Check the helper behavior before invoking it and preserve user data and unrelated worktree changes.
