@@ -20,15 +20,15 @@ The registry tests cover metadata preservation, failed provider snapshots, unins
 
 ## Local Home Assistant
 
-The `dev/` helpers target the shared local Home Assistant instance:
+The `dev/` helpers target the shared Docker-based Home Assistant instance:
 
 ```sh
-dev/copy-to-core.sh
+dev/deploy-to-ha.sh
 dev/start-ha.sh
 dev/stop-ha.sh
 ```
 
-`copy-to-core.sh` stops the shared instance, copies this integration into its configuration, and starts it again. Check `AGENTS.md` before invoking helpers in an automated workflow.
+`deploy-to-ha.sh` stops the shared container, stages this integration into its mounted configuration, and starts it again. See [Local Home Assistant](local-home-assistant.md) for the container, configuration, authentication, and test-environment details. Check `AGENTS.md` before invoking helpers in an automated workflow.
 
 ## Frontend
 

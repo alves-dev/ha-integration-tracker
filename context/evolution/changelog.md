@@ -30,6 +30,16 @@
 *This changelog documents the state when Context Mesh was added.*
 *Future changes will be tracked below.*
 
+## 2026.10.27
+
+- Migrated the local Home Assistant helpers to the shared Docker container
+  `hass-dev-homeassistant`, using `dev/deploy-to-ha.sh` and shared environment
+  documentation.
+- Updated agent and development guidance to remove the legacy host Core and PID
+  file workflow.
+- Standardized development prerelease cleanup to run daily and retain five
+  prereleases by default.
+
 ## 2026.10.24
 
 - Added runtime, configuration-flow, panel, WebSocket, and detector orchestration
