@@ -39,6 +39,8 @@
   file workflow.
 - Standardized development prerelease cleanup to run daily and retain five
   prereleases by default.
+- Synchronized `docs/local-home-assistant.md` with canonical reference version
+  `2026.10.27.1`, including the shared test inventory and UI endpoint.
 
 ## 2026.10.24
 
