@@ -8,10 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from homeassistant.components import automation, scene, script
+from homeassistant.components.lovelace import const as lovelace_const
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry, entity_registry
-from homeassistant.helpers.storage import Store
 
 from ..models import TrackedItem
 from .detectors import (
@@ -22,6 +22,8 @@ from .detectors import (
     detect_dashboard_usages,
 )
 from .models import DetectedUsage
+
+LOVELACE_DATA = getattr(lovelace_const, "LOVELACE_DATA", "lovelace")
 
 
 @dataclass(slots=True, frozen=True)
@@ -54,13 +56,18 @@ async def async_detect_all(
         ("scripts", lambda: _component_snapshot(hass, items, script.DOMAIN, "scripts")),
         ("scenes", lambda: _component_snapshot(hass, items, scene.DATA_COMPONENT, "scenes")),
         ("themes", lambda: _theme_snapshot(hass, items)),
-        ("blueprints", lambda: _blueprint_snapshot(hass, items)),
     )
     for detector, collect in sync_detectors:
         try:
             snapshots.append(collect())
         except Exception as err:
             snapshots.append(DetectionSnapshot(detector, False, [], str(err)))
+    try:
+        snapshots.append(
+            await hass.async_add_executor_job(_blueprint_snapshot, hass, items)
+        )
+    except Exception as err:
+        snapshots.append(DetectionSnapshot("blueprints", False, [], str(err)))
     try:
         snapshots.append(await _dashboard_snapshot(hass, items))
     except Exception as err:
@@ -269,16 +276,13 @@ def _dashboard_view_records(
 async def _dashboard_snapshot(
     hass: HomeAssistant, items: Sequence[TrackedItem]
 ) -> DetectionSnapshot:
-    """Collect stored/YAML dashboards and Lovelace resources."""
-    lovelace = hass.data.get("lovelace")
-    if isinstance(lovelace, dict) and "dashboards" in lovelace:
-        records, loaded_sources = await _load_exposed_dashboards(lovelace)
-        records.extend(await _load_exposed_resources(lovelace))
-    else:
-        records, loaded_sources = [], 0
+    """Collect dashboards and Lovelace resources from the active runtime."""
+    lovelace = hass.data.get(LOVELACE_DATA)
+    if lovelace is None:
+        return DetectionSnapshot("dashboards", False, [])
 
-    if not records:
-        records, loaded_sources = await _async_load_storage_dashboards(hass)
+    records, loaded_sources = await _load_exposed_dashboards(lovelace)
+    records.extend(await _load_exposed_resources(lovelace))
 
     return DetectionSnapshot(
         "dashboards",
@@ -287,11 +291,16 @@ async def _dashboard_snapshot(
     )
 
 
-async def _load_exposed_dashboards(lovelace: dict[str, Any]) -> tuple[list[ComponentRecord], int]:
+async def _load_exposed_dashboards(lovelace: Any) -> tuple[list[ComponentRecord], int]:
     """Load dashboards exposed by the active Lovelace runtime."""
     records: list[ComponentRecord] = []
     loaded_sources = 0
-    for url_path, dashboard in lovelace["dashboards"].items():
+    dashboards = (
+        lovelace.get("dashboards", {})
+        if isinstance(lovelace, Mapping)
+        else lovelace.dashboards
+    )
+    for url_path, dashboard in dashboards.items():
         try:
             config = await dashboard.async_load(False)
         except (HomeAssistantError, KeyError, TypeError, ValueError):
@@ -309,9 +318,9 @@ async def _load_exposed_dashboards(lovelace: dict[str, Any]) -> tuple[list[Compo
     return records, loaded_sources
 
 
-async def _load_exposed_resources(lovelace: dict[str, Any]) -> list[ComponentRecord]:
+async def _load_exposed_resources(lovelace: Any) -> list[ComponentRecord]:
     """Load resources exposed by the active Lovelace runtime."""
-    resources = lovelace.get("resources")
+    resources = lovelace.get("resources") if isinstance(lovelace, Mapping) else lovelace.resources
     if resources is None:
         return []
     try:
@@ -328,84 +337,6 @@ async def _load_exposed_resources(lovelace: dict[str, Any]) -> list[ComponentRec
         ]
     except (HomeAssistantError, KeyError, TypeError, ValueError):
         return []
-
-
-async def _async_load_storage_dashboards(
-    hass: HomeAssistant,
-) -> tuple[list[ComponentRecord], int]:
-    """Load storage-mode dashboards when Lovelace is not exposed in hass.data."""
-    records: list[ComponentRecord] = []
-    loaded_sources = 0
-    try:
-        records, loaded_sources = await _load_storage_dashboard_records(hass)
-        records.extend(await _load_storage_resources(hass))
-        loaded_sources += 1
-    except (HomeAssistantError, KeyError, TypeError, ValueError):
-        return [], 0
-    return records, loaded_sources
-
-
-async def _load_storage_dashboard_records(hass: HomeAssistant) -> tuple[list[ComponentRecord], int]:
-    """Load the default and storage-mode dashboard records."""
-    records: list[ComponentRecord] = []
-    loaded_sources = 0
-    default_data = await Store(hass, 1, "lovelace").async_load()
-    default_config = default_data.get("config") if isinstance(default_data, dict) else None
-    if isinstance(default_config, dict):
-        records.extend(
-            _dashboard_view_records(
-                "dashboard:lovelace",
-                str(default_config.get("title") or "lovelace"),
-                "/lovelace",
-                default_config,
-            )
-        )
-        loaded_sources += 1
-
-    dashboard_data = await Store(hass, 1, "lovelace_dashboards").async_load()
-    dashboards = dashboard_data.get("items", []) if isinstance(dashboard_data, dict) else []
-    for dashboard in dashboards:
-        records_for_dashboard = await _load_one_storage_dashboard(hass, dashboard)
-        if records_for_dashboard:
-            records.extend(records_for_dashboard)
-            loaded_sources += 1
-    return records, loaded_sources
-
-
-async def _load_one_storage_dashboard(hass: HomeAssistant, dashboard: Any) -> list[ComponentRecord]:
-    """Load one storage-mode dashboard, if its metadata is usable."""
-    if not isinstance(dashboard, dict) or dashboard.get("mode") != "storage":
-        return []
-    dashboard_id = dashboard.get("id")
-    if not dashboard_id:
-        return []
-    stored = await Store(hass, 1, f"lovelace.{dashboard_id}").async_load()
-    config = stored.get("config") if isinstance(stored, dict) else None
-    if not isinstance(config, dict):
-        return []
-    url_path = str(dashboard.get("url_path") or dashboard_id)
-    return _dashboard_view_records(
-        f"dashboard:{url_path}",
-        str(dashboard.get("title") or url_path),
-        f"/{url_path}",
-        config,
-    )
-
-
-async def _load_storage_resources(hass: HomeAssistant) -> list[ComponentRecord]:
-    """Load Lovelace resources from storage."""
-    resources = await Store(hass, 1, "lovelace_resources").async_load()
-    items = resources.get("items", []) if isinstance(resources, dict) else []
-    return [
-        ComponentRecord(
-            identifier=f"resource:{resource.get('url') or ''}",
-            name=f"Lovelace resource: {resource.get('url') or ''}",
-            url=str(resource.get("url") or ""),
-            config=resource,
-        )
-        for resource in items
-        if isinstance(resource, dict)
-    ]
 
 
 def _entity_url(detector: str, entity_id: str, config: Any = None) -> str | None:

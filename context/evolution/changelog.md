@@ -30,6 +30,13 @@
 *This changelog documents the state when Context Mesh was added.*
 *Future changes will be tracked below.*
 
+## 2026.11.06
+
+- Moved blueprint filesystem traversal to Home Assistant's executor so usage
+  detection does not block the event loop.
+- Switched Lovelace dashboard and resource detection to the active in-memory
+  Lovelace runtime data and removed direct storage-file reads.
+
 ## 2026.10.27
 
 - Migrated the local Home Assistant helpers to the shared Docker container
