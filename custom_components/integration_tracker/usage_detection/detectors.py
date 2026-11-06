@@ -36,51 +36,72 @@ class ConfigReference:
 def iter_config_references(value: Any, path: str = "config") -> Iterator[ConfigReference]:
     """Yield entity, service, device, event, custom card, and resource references."""
     if isinstance(value, Mapping):
-        for key, child in value.items():
-            child_path = f"{path}.{key}"
-            key_text = str(key).casefold()
-            if isinstance(child, str):
-                if key_text in {"service", "action", "service_template", "action_template"}:
-                    if _SERVICE.match(child):
-                        yield ConfigReference("service", child, child_path)
-                elif key_text in {"device_id", "device"}:
-                    yield ConfigReference("device", child, child_path)
-                elif key_text in {"area_id", "area"}:
-                    yield ConfigReference("area", child, child_path)
-                elif key_text in {"event", "event_type"}:
-                    yield ConfigReference("event", child, child_path)
-                elif key_text == "theme":
-                    yield ConfigReference("theme", child, child_path)
-                elif key_text == "use_blueprint":
-                    yield ConfigReference("blueprint", child, child_path)
-                elif _ENTITY_ID.match(child):
-                    yield ConfigReference("entity", child, child_path)
-                if child.startswith("custom:"):
-                    yield ConfigReference("card", child.removeprefix("custom:"), child_path)
-                if _looks_like_resource(child):
-                    yield ConfigReference("resource", child, child_path)
-            elif isinstance(child, Sequence) and key_text in {
-                "entity_id", "entity", "entities", "device_id", "devices", "area_id", "areas"
-            }:
-                for index, entity_id in enumerate(child):
-                    if not isinstance(entity_id, str):
-                        continue
-                    reference_type = "entity"
-                    if key_text in {"device_id", "devices"}:
-                        reference_type = "device"
-                    elif key_text in {"area_id", "areas"}:
-                        reference_type = "area"
-                    if reference_type != "entity" or _ENTITY_ID.match(entity_id):
-                        yield ConfigReference(reference_type, entity_id, f"{child_path}[{index}]")
-            elif key_text == "use_blueprint" and isinstance(child, Mapping):
-                blueprint_path = child.get("path")
-                if isinstance(blueprint_path, str):
-                    yield ConfigReference("blueprint", blueprint_path, child_path + ".path")
-            yield from iter_config_references(child, child_path)
+        yield from _iter_mapping_references(value, path)
         return
     if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
         for index, child in enumerate(value):
             yield from iter_config_references(child, f"{path}[{index}]")
+
+
+def _iter_mapping_references(value: Mapping[Any, Any], path: str) -> Iterator[ConfigReference]:
+    """Extract direct references and recurse through a mapping."""
+    for key, child in value.items():
+        child_path = f"{path}.{key}"
+        key_text = str(key).casefold()
+        if isinstance(child, str):
+            yield from _iter_scalar_references(key_text, child, child_path)
+        elif isinstance(child, Sequence) and key_text in {
+            "entity_id", "entity", "entities", "device_id", "devices", "area_id", "areas"
+        }:
+            yield from _iter_sequence_references(key_text, child, child_path)
+        elif key_text == "use_blueprint" and isinstance(child, Mapping):
+            blueprint_path = child.get("path")
+            if isinstance(blueprint_path, str):
+                yield ConfigReference("blueprint", blueprint_path, child_path + ".path")
+        yield from iter_config_references(child, child_path)
+
+
+def _iter_scalar_references(
+    key: str, child: str, path: str
+) -> Iterator[ConfigReference]:
+    """Extract references represented by one scalar value."""
+    scalar_kinds = {
+        "device_id": "device",
+        "device": "device",
+        "area_id": "area",
+        "area": "area",
+        "event": "event",
+        "event_type": "event",
+        "theme": "theme",
+        "use_blueprint": "blueprint",
+    }
+    if key in {"service", "action", "service_template", "action_template"}:
+        if _SERVICE.match(child):
+            yield ConfigReference("service", child, path)
+    elif key in scalar_kinds:
+        yield ConfigReference(scalar_kinds[key], child, path)
+    elif _ENTITY_ID.match(child):
+        yield ConfigReference("entity", child, path)
+    if child.startswith("custom:"):
+        yield ConfigReference("card", child.removeprefix("custom:"), path)
+    if _looks_like_resource(child):
+        yield ConfigReference("resource", child, path)
+
+
+def _iter_sequence_references(
+    key: str, values: Sequence[Any], path: str
+) -> Iterator[ConfigReference]:
+    """Extract references represented by a list value."""
+    reference_type = "entity"
+    if key in {"device_id", "devices"}:
+        reference_type = "device"
+    elif key in {"area_id", "areas"}:
+        reference_type = "area"
+    for index, value in enumerate(values):
+        if not isinstance(value, str):
+            continue
+        if reference_type != "entity" or _ENTITY_ID.match(value):
+            yield ConfigReference(reference_type, value, f"{path}[{index}]")
 
 
 def detect_component_usages(

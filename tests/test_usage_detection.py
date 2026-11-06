@@ -87,6 +87,38 @@ def test_iter_config_references_extracts_dashboard_theme():
     ]
 
 
+@pytest.mark.asyncio
+async def test_async_detect_all_keeps_partial_detector_errors(monkeypatch):
+    """One detector failure does not discard snapshots from the others."""
+    hass = SimpleNamespace(
+        config_entries=SimpleNamespace(async_domains=lambda: {"example"}),
+        data={},
+    )
+
+    async def run_in_executor(function, *args):
+        return function(*args)
+
+    hass.async_add_executor_job = run_in_executor
+    available = coordinator.DetectionSnapshot("stub", True, [])
+    failed = RuntimeError("dashboard source unavailable")
+    monkeypatch.setattr(coordinator, "detect_configured_integrations", lambda *_args: [])
+    monkeypatch.setattr(coordinator, "_component_snapshot", lambda *_args: available)
+    monkeypatch.setattr(coordinator, "_theme_snapshot", lambda *_args: available)
+    monkeypatch.setattr(coordinator, "_blueprint_snapshot", lambda *_args: available)
+
+    async def fail_dashboard(*_args):
+        raise failed
+
+    monkeypatch.setattr(coordinator, "_dashboard_snapshot", fail_dashboard)
+
+    snapshots = await coordinator.async_detect_all(hass, [tracked_item()])
+
+    assert len(snapshots) == 7
+    assert sum(snapshot.available for snapshot in snapshots) == 6
+    assert snapshots[-1].detector == "dashboards"
+    assert snapshots[-1].error == str(failed)
+
+
 def test_dashboard_detector_matches_catppuccin_theme_name():
     item = TrackedItem.from_provider(
         ProviderItem(
@@ -283,36 +315,47 @@ def test_configured_integration_detector_only_returns_configured_domains():
 
 
 @pytest.mark.asyncio
-async def test_storage_dashboard_fallback_loads_dashboard_and_resources(monkeypatch):
-    stored = {
-        "lovelace": {"config": {"views": [{"cards": [{"entity": "sun.sun"}]}]}},
-        "lovelace_dashboards": {
-            "items": [
-                {
-                    "id": "dashboard_testes",
-                    "title": "Testes",
-                    "url_path": "dashboard-testes",
-                    "mode": "storage",
-                }
-            ]
+async def test_dashboard_snapshot_loads_active_lovelace_data(monkeypatch):
+    class FakeDashboard:
+        def __init__(self, title, url_path, config):
+            self.title = title
+            self.url_path = url_path
+            self.config = config
+
+        async def async_load(self, _force):
+            return self.config
+
+    class FakeResources:
+        loaded = True
+
+        def async_items(self):
+            return [{"url": "/hacsfiles/example-card/card.js"}]
+
+    lovelace = SimpleNamespace(
+        dashboards={
+            None: FakeDashboard(
+                "Default",
+                None,
+                {"views": [{"cards": [{"entity": "sun.sun"}]}]},
+            ),
+            "dashboard-testes": FakeDashboard(
+                "Testes",
+                "dashboard-testes",
+                {"views": [{"cards": [{"entity": "sun.sun"}]}]},
+            ),
         },
-        "lovelace.dashboard_testes": {
-            "config": {"views": [{"cards": [{"entity": "sun.sun"}]}]}
-        },
-        "lovelace_resources": {"items": [{"url": "/hacsfiles/example-card/card.js"}]},
-    }
+        resources=FakeResources(),
+    )
+    hass = SimpleNamespace(data={coordinator.LOVELACE_DATA: lovelace})
 
-    class FakeStore:
-        def __init__(self, _hass, _version, key):
-            self.key = key
+    monkeypatch.setattr(coordinator, "_reference_domains", lambda _hass: {})
+    snapshot = await coordinator._dashboard_snapshot(hass, [])
 
-        async def async_load(self):
-            return stored.get(self.key)
-
-    monkeypatch.setattr(coordinator, "Store", FakeStore)
-    records, loaded = await coordinator._async_load_storage_dashboards(object())
-
-    assert loaded == 3
+    assert snapshot.available is True
+    assert len(snapshot.detections) == 0
+    records, loaded = await coordinator._load_exposed_dashboards(lovelace)
+    records.extend(await coordinator._load_exposed_resources(lovelace))
+    assert loaded == 2
     assert {record.identifier for record in records} == {
         "dashboard:lovelace:view:0",
         "dashboard:dashboard-testes:view:0",

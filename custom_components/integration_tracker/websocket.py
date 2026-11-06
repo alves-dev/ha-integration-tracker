@@ -341,7 +341,7 @@ async def websocket_refresh_usage(hass, connection, msg) -> None:
         _send_domain_error(connection, msg, err)
 
 
-async def _mutate_detected_usage(hass, connection, msg, operation) -> None:
+async def _mutate_detected_usage(connection, msg, operation) -> None:
     """Apply one detected usage moderation operation."""
     try:
         usage = await operation(
@@ -366,7 +366,6 @@ async def websocket_confirm_usage(hass, connection, msg) -> None:
     """Confirm a detected usage."""
     runtime = _runtime(hass)
     await _mutate_detected_usage(
-        hass,
         connection,
         msg,
         runtime.registry.async_confirm_detected_usage,
@@ -386,7 +385,6 @@ async def websocket_ignore_usage(hass, connection, msg) -> None:
     """Ignore a detected usage."""
     runtime = _runtime(hass)
     await _mutate_detected_usage(
-        hass,
         connection,
         msg,
         runtime.registry.async_ignore_detected_usage,
@@ -406,7 +404,6 @@ async def websocket_convert_usage(hass, connection, msg) -> None:
     """Convert a detected usage into a manual usage."""
     runtime = _runtime(hass)
     await _mutate_detected_usage(
-        hass,
         connection,
         msg,
         runtime.registry.async_convert_detected_usage,

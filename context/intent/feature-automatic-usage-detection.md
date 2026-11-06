@@ -24,6 +24,8 @@ ou remover um repositório.
 - [x] Administradores podem confirmar, ignorar ou converter candidatos em usos
       manuais.
 - [x] O sistema não modifica dashboards, automações, scripts ou configurações.
+- [x] A detecção permanece responsiva durante a leitura de blueprints e usa a
+      visão ativa do Lovelace quando disponível.
 
 ## Related
 

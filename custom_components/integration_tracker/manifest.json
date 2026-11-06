@@ -8,6 +8,7 @@
   "dependencies": [
     "frontend",
     "http",
+    "lovelace",
     "panel_custom",
     "websocket_api"
   ],
@@ -15,5 +16,5 @@
   "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/alves-dev/ha-integration-tracker/issues",
-  "version": "2026.10.1"
+  "version": "2026.11.0"
 }

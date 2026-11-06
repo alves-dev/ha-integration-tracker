@@ -2,6 +2,15 @@
 
 All user-relevant changes are documented in this file.
 
+## [2026.11.0] - 2026-11-06
+
+### Fixed
+
+- Moved blueprint filesystem traversal to Home Assistant's executor so usage
+  detection does not block the event loop.
+- Switched Lovelace dashboard and resource detection to the active in-memory
+  runtime and removed direct storage-file reads.
+
 ## [2026.10.1] - 2026-10-23
 
 ### Added
